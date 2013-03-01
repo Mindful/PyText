@@ -15,27 +15,25 @@ class fq(deque):
 
 
 class main_fq(deque):
-    def __init__(self):
+    def __init__(self, cmd):
         self.resolving = None
-        self.commands = {'genericFunction': genericFunction, 'mailException': mailException, 
-                         'dataException': dataException, d.internal.load_contacts: populateContacts,
-                         m.internal.logon: var.l.saveLogon, m.internal.logout: mainLogout }
+        self.commands = cmd
 
     def add(self, func):
         func = ('genericFunction', func)
         if not func == self.resolving:
             self.append(func)
 
-    def run():
+    def run(self):
         self.resolving = self.popleft()
-        self.commands[resolving[0]](resolving[1])
+        self.commands[self.resolving[0]](self.resolving[1])
         self.resolving = None
 
-    def mailException(error):
+    def mailException(self, error):
         self.append(('mailException', mailException(error)))
 
-    def dataException(error):
+    def dataException(self, error):
         self.append(('dataException',dataException(error)))
 
-    def insturction(instruction):
-        mainQ.append((instruction, None))
+    def instruction(self, instruction):
+        self.append((instruction, None))

@@ -15,17 +15,17 @@ def init(deque):
 
 def terminate():
     'Ends the mail thread and calls cleanup functions'
-    internal.q.append(internal.terminate)
+    internal.q.add(internal.terminate)
 
 
 def enqueue(func):
     'Adds a function to the pt_mail queue; best used to do something immediately after something else. MUST BE A CALLABLE FUNCTION'
-    internal.q.append(func)
+    internal.q.add(func)
 
 def logon(account, password):
     'Logs on to the target IMAP server, and removes the login interface.'
-    internal.q.append(lambda: internal.logon(account, password))
+    internal.q.add(lambda: internal.logon(account, password))
 
 def logout():
     'Logs out of the current IMAP server, and moves the main screen back to the login interface.'
-    internal.q.append(internal.logout)
+    internal.q.add(internal.logout)

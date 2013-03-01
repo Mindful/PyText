@@ -1,7 +1,7 @@
 from tkinter import *
 from tkinter import ttk
 from tkinter import messagebox
-import pt_mail as m, pt_data as d, queue
+import pt_mail as m, pt_data as d, func_queue, queue
 
 #logout button can be double clicked, which is bad. need a generalized solution to disable buttons on use (like login)
 #so that they can't be double clicked
@@ -16,7 +16,7 @@ mainFrame = ttk.Frame(main, padding="40 40 40 40") #can always rowconfigure and 
 
 running = True
 
-q = queue.deque()
+q = None
 
 mailQ = queue.deque()
 dataQ = queue.deque()
@@ -34,10 +34,10 @@ class var:
     messaging = None
     updatables = set()
 
-class infoFrame:
+class infoFrame: #THIS LAMBDA SHOULD NOT GO DIRECTLY TO m.logout IT SHOULD DISABLE THE BUTTON AND THEN DO THAT
     def __init__(self):
         self.frame = ttk.Frame(mainFrame)
-        self.logout_button= ttk.Button(self.frame, text = "Logout", command = m.logout) #m.logout causing stalls
+        self.logout_button= ttk.Button(self.frame, text = "Logout", command = self.logout) #m.logout causing stalls
         self.frame.grid(column = 0, row = 0, columnspan = 2, rowspan = 7)
         self.text = Text(self.frame, state = 'disabled', borderwidth = '5', background = 'SteelBlue', relief = 'groove')
         self.text.grid(column = 0, row = 1, columnspan = 2, rowspan = 4)
@@ -47,6 +47,17 @@ class infoFrame:
         self.text['state']='normal'
         #stuff
         self.text['state']='disabled'
+
+    def logout(self):
+        var.i.logout_button['state'] = 'disabled'
+        var.l.logon_button['state'] = 'disabled'
+        var.c.close()
+        m.logout()
+        mainFrame.grid_forget()
+        oldContacts = var.contact.contacts_pane.get_children()
+        for c in oldContacts:
+            var.contact.contacts_pane.delete(c)
+        var.l.active()
 
 
 class messagingFrame:
@@ -149,7 +160,7 @@ class loginFrame:
         else:
             d.internal.var.accounts[self.account_string.get()] = ''
             d.save_account(self.account_string.get())
-        q.append(('genericFunction', self.inactive))
+        q.add(self.inactive)
         d.load_contacts(self.account_string.get())
 
     def login(self, *args):
@@ -157,7 +168,7 @@ class loginFrame:
         self.account_string.set(self.account_string.get().strip())
         self.password_string.set(self.password_string.get().strip())
         m.logon(self.account_string.get(), self.password_string.get())
-        m.enqueue(lambda: q.append(('genericFunction', lambda: self.toggleLogonButton(True))))
+        m.enqueue(lambda: q.add(lambda: self.toggleLogonButton(True)))
 
     def error(self, text = None):
         self.error_text['state'] = 'normal'
@@ -218,6 +229,7 @@ def capitalizeWords(string):
 
 def mainActive():
     mainFrame.grid(column = 0, row = 0, sticky = (N, W, E, S))
+    var.i.logout_button['state'] = 'normal'
 
 def populateContacts(null):
     'Should typically be run on account setting fetch resoluton, and only in the main thread.'
@@ -228,18 +240,8 @@ def populateContacts(null):
             contacts_pane.insert('', 'end', item, values = item)
 
 def mainLogout(null):
-    print('1')
-    q.append(('genericFunction', actualMainLogout))
-
-
-def actualMainLogout():
-    print('2')
-    mainFrame.grid_forget()
-    oldContacts = var.contact.contacts_pane.get_children()
-    for c in oldContacts:
-        var.contact.contacts_pane.delete(c)
-    var.l.active()
-
+     var.i.logout_button['state'] = 'normal'
+     var.l.logon_button['state'] = 'normal'
 
   
 def genericFunction(func):
@@ -262,15 +264,16 @@ def minimize(*args):
     main.iconify()
 
 def init():
+    global q
     var.l = loginFrame()
     var.c = contactWindow()
     var.i = infoFrame()
     var.info = infoFrame()
     var.contact = contactFrame()
     var.messaging = messagingFrame()
-    sortMethod = {'genericFunction': genericFunction, 'mailException': mailException, 'dataException': dataException,
-                  d.internal.load_contacts: populateContacts, m.internal.logon: var.l.saveLogon , 
-                  m.internal.logout: mainLogout }
+    q = func_queue.main_fq({'genericFunction': genericFunction, 'mailException': mailException, 
+                         'dataException': dataException, d.internal.load_contacts: populateContacts,
+                         m.internal.logon: var.l.saveLogon, m.internal.logout: mainLogout })
     d.init(q, var)
     m.init(q)
     main.protocol("WM_DELETE_WINDOW", quit)
@@ -278,8 +281,7 @@ def init():
     main.focus()
     while running: #this seems the best way to alter the mainloop; write my own using update
         if len(q) > 0:
-            temp = q.popleft()
-            sortMethod[temp[0]](temp[1])
+            q.run()
         main.update()
         for item in var.updatables:
             item.update()

@@ -1,6 +1,6 @@
-import sqlite3, os, base64, queue, json
+import sqlite3, os, base64, func_queue, json
 
-q = queue.deque() 
+q = func_queue.fq() 
 
 mainQ = None
 running = True
@@ -18,15 +18,6 @@ class dataException(Exception):
         self.error = error
     def __str__(self):
         return repr(self.error)
-
-def mainExcept(error):
-    mainQ.append(('dataException',dataException(error)))
-
-def mainEnqueue(func, type = 'genericFunction'):
-    mainQ.append((type, func))
-
-def mainInstruction(instruction, value = None):
-    mainQ.append((instruction, value))
 
 def encode64_dict(dict):
     newDict = {}
@@ -73,7 +64,7 @@ def init(mainVar):
         l.login()
     while running:
         if len(q) > 0:
-            q.popleft()()
+            q.run()
 
 def terminate():
     global running
@@ -98,7 +89,7 @@ def load_contacts(account):
     cur.execute("SELECT * FROM accounts WHERE account=?", (account,)) #must be a tuple, even if there is only one value
     a = cur.fetchone() #this is returning a tuple instead of a dictionary
     var.contacts = json.loads(a[2]) #note this overrides defaults, makes testing hard
-    mainInstruction(load_contacts)
+    mainQ.instruction(load_contacts)
     #list = cur.fetchmany() #THIS RETURNS A LIST OF SQLITE OBJECTS, WHICH ARE DICTS
     #print(list)
     #print(list[0]['account']) 
