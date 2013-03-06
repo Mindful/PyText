@@ -14,6 +14,7 @@ def init(deque, var):
 
 def terminate():
     'Ends the data thread and calls cleanup functions (like a last settings save)'
+    internal.q.add(lambda: internal.save_contacts(internal.var.currentAccount))
     internal.q.add(internal.save_settings)
     internal.q.add(internal.terminate)
 
@@ -27,7 +28,7 @@ def save_account(account, password = None, favorites = None): #this needs to be 
     internal.q.add(lambda: internal.save_account(account, password, favorites))
 
 def load_contacts(account): #this needs to be updated to also load account-specific settings
-    'Load any settings associated with the given account'
+    'Load any settings associated with the given account. Also sets this account as the current account.'
     internal.q.add(lambda: internal.load_contacts(account))
     
 def save_settings():

@@ -25,7 +25,6 @@ dataExceptionQ = queue.deque()
 
 
 class var:
-    currentAccount = ''
     l = None
     c = None
     i = None
@@ -44,7 +43,7 @@ class infoFrame:
         self.logout_button.grid(column = 0, row = 10, sticky = (E,S))
         self.text.tag_configure('error', background = 'Black')
         self.line = 1.0
-        self.log("Welcome to PyText!")
+        self.log(" --- Welcome to PyText! --- ")
         self.log("Latest version always found at: https://github.com/Mindfulness/PyText")
         #self.text.configure(inactiveselectbackground=self.text.cget("selectbackground")) #foreground = 'WhiteSmoke'
 
@@ -85,6 +84,7 @@ class messagingFrame:
 
 class contactFrame:
     def __init__(self):
+        #TODO: this should not be resizable
         self.frame = ttk.Frame(mainFrame)
         self.frame.grid(column = 3, row = 0, columnspan = 2, rowspan = 7)
         self.addContact_button = ttk.Button(self.frame, text = "Add Contact", command = lambda: var.c.open())
@@ -96,7 +96,7 @@ class contactFrame:
         self.addContact_button.grid(column = 0, row = 7, sticky = (N,E))
 
 class contactWindow:
-
+    #TODO: favoriting and deleting contacts
     def __init__(self):
         self.main = Toplevel(main)
         self.main.withdraw()
@@ -124,7 +124,7 @@ class contactWindow:
         ttk.Label(self.frame, text = "Number:", anchor = 'e').grid(column = 0, row = 1, sticky = (W))
         #Provider Label
         ttk.Label(self.frame, text = "Provider:", anchor = 'e').grid(column = 0, row = 2, sticky = (W))
-        #provider box here for the sake of tab order
+        #provider box here for the sake of tab order - tab order is by default dependent on the order things are added
         self.provider_box = ttk.Combobox(self.entryFrame, state = 'readonly', values = tuple(values))
         self.provider_box.grid(column = 0, row = 2, sticky = (W,E))
         #Add Button
@@ -140,7 +140,6 @@ class contactWindow:
         self.main.withdraw()
 
     def addContact(self, *args):
-        #Validate name
         name = capitalizeWords(self.name_string.get())
         if len(name) == 0:
             var.i.error('Cannot add a contact without a name.')
@@ -151,12 +150,14 @@ class contactWindow:
             return
         if self.provider_box.current() == -1:
             var.i.error('Cannot add a contact without a phone provider.')
-        else:
-            provider = self.provider_box.get().lower()
-        #TODO: CHECK FOR DUPLICATE CONTACT HERE
+            return
+        provider = self.provider_box.get().lower()
+        if name in d.internal.var.contacts:
+            var.i.error('You already have '+name+' as a contact.')
+            return
         d.internal.var.contacts[name] = (num, provider, '0') #Name : (Phone Number, Provider, isFavorited)
-        var.contact.contacts_pane.insert('', 'end', name, values = name)
-        var.i.log(name+" successfully added to contacts")
+        var.contact.contacts_pane.insert('', 'end', text = (name,), values = (name,)) #must be item inside a tuple so it takes it as a SINGLE STRING INCLUDING SPACES
+        var.i.log(name+" successfully added to contacts.")
         self.name_string.set("")
         self.num_string.set("")
         self.provider_box.set("")
@@ -261,9 +262,9 @@ def populateContacts(null):
     'Should typically be run on account setting fetch resoluton, and only in the main thread.'
     for item in d.internal.var.contacts:
         if d.internal.var.contacts[item][2] == '1': #we know it's favorited
-            var.contact.contacts_pane.insert('', 0, item, values = item, tags = ('favorite',))
+            var.contact.contacts_pane.insert('', 0, text = (item,), values = (item,), tags = ('favorite',))
         else:
-            var.contact.contacts_pane.insert('', 'end', item, values = item)
+            var.contact.contacts_pane.insert('', 'end', text = (item,), values = (item,)) #must be item inside a tuple so it takes it as a SINGLE STRING INCLUDING SPACES
 
 def mainLogout(null):
      var.i.logout_button['state'] = 'normal'
