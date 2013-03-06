@@ -1,4 +1,4 @@
-import sqlite3, os, base64, func_queue, json
+import sqlite3, os, base64, func_queue, json, collections
 
 q = func_queue.fq() 
 
@@ -8,16 +8,10 @@ running = True
 class var: #python's core classes are supposedly threadsafe in cPython, so I should be able to just read/write this from the main thread
     settings = {'save_account':'1', 'save_password':'1', 'default_account':'', 'confirmation_windows':'1'} 
     accounts ={} #'accountName': settings //note that settings should include password as its FIRST value
-    contacts = {'Josh': ('5103263431','verizon','1'), 'Robert':('5554443333','dunno','1'), 'Kalex':('1234567890','dunno','0')} 
+    contacts = collections.OrderedDict()
 
     fileName = 'settings.pt'
     file = None
-
-class dataException(Exception):
-    def __init__(self, error):
-        self.error = error
-    def __str__(self):
-        return repr(self.error)
 
 def encode64_dict(dict):
     newDict = {}

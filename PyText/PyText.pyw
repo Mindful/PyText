@@ -34,17 +34,35 @@ class var:
     messaging = None
     updatables = set()
 
-class infoFrame: #THIS LAMBDA SHOULD NOT GO DIRECTLY TO m.logout IT SHOULD DISABLE THE BUTTON AND THEN DO THAT
+class infoFrame: 
     def __init__(self):
         self.frame = ttk.Frame(mainFrame)
-        self.logout_button= ttk.Button(self.frame, text = "Logout", command = self.logout) #m.logout causing stalls
+        self.logout_button= ttk.Button(self.frame, text = "Logout", command = self.logout)
         self.frame.grid(column = 0, row = 0, columnspan = 2, rowspan = 7)
-        self.text = Text(self.frame, state = 'disabled', borderwidth = '5', background = 'SteelBlue', relief = 'groove')
+        self.text = Text(self.frame, state = 'disabled', borderwidth = '2', background = 'SteelBlue', relief = 'groove', foreground = 'WhiteSmoke')
         self.text.grid(column = 0, row = 1, columnspan = 2, rowspan = 4)
         self.logout_button.grid(column = 0, row = 10, sticky = (E,S))
+        self.text.tag_configure('error', background = 'Black')
+        self.line = 1.0
+        self.log("Welcome to PyText!")
+        self.log("Latest version always found at: https://github.com/Mindfulness/PyText")
+        #self.text.configure(inactiveselectbackground=self.text.cget("selectbackground")) #foreground = 'WhiteSmoke'
 
     def log(self, string):
+        #self.text.update_idletasks()
         self.text['state']='normal'
+        self.text.insert(self.line,string+"\n")
+        self.line = self.line+1
+        #stuff
+        self.text['state']='disabled'
+
+    def error(self, string):
+        #self.text.update_idletasks()
+        self.text['state']='normal'
+        self.text.insert(self.line,"Error: "+string+"\n")
+        self.text.tag_add('error',self.line, self.line+0.6)
+        self.line = self.line+1
+        main.focus()
         #stuff
         self.text['state']='disabled'
 
@@ -96,10 +114,8 @@ class contactWindow:
         values = []
         for item in m.internal.var.addresses.keys():
             values.append(capitalizeWords(item))
-        self.provider_box = ttk.Combobox(self.entryFrame, state = 'readonly', values = tuple(values))
-        self.provider_box.grid(column = 0, row = 2, sticky = (W,E))
-        #Name Entry
-        ttk.Entry(self.entryFrame, textvariable = self.name_string).grid(column = 0, row = 0, sticky = (W,E))
+        self.name_entry = ttk.Entry(self.entryFrame, textvariable = self.name_string)
+        self.name_entry.grid(column = 0, row = 0, sticky = (W,E))
         #Name Label
         ttk.Label(self.frame, text = "Name:",  anchor = 'e').grid(column = 0, row = 0, sticky = (W))
         #Number Entry
@@ -108,13 +124,17 @@ class contactWindow:
         ttk.Label(self.frame, text = "Number:", anchor = 'e').grid(column = 0, row = 1, sticky = (W))
         #Provider Label
         ttk.Label(self.frame, text = "Provider:", anchor = 'e').grid(column = 0, row = 2, sticky = (W))
+        #provider box here for the sake of tab order
+        self.provider_box = ttk.Combobox(self.entryFrame, state = 'readonly', values = tuple(values))
+        self.provider_box.grid(column = 0, row = 2, sticky = (W,E))
         #Add Button
         ttk.Button(self.frame, text = "Add Contact", command = self.addContact).grid(column = 1, row = 3, sticky = (W,E), columnspan = 2)
 
     def open(self): #this may need to be added and removed from updatables, otherwise we need to figure out relevant error handling
         self.main.state('normal')
         self.main.lift()
-        self.main.focus()
+        #self.main.focus()
+        self.name_entry.focus()
 
     def close(self, *args):
         self.main.withdraw()
@@ -123,19 +143,23 @@ class contactWindow:
         #Validate name
         name = capitalizeWords(self.name_string.get())
         if len(name) == 0:
-            print('must enter name')
+            var.i.error('Cannot add a contact without a name.')
+            return
         num = self.num_string.get().strip()
-        if len(num)!=10:
-            print('phone numbers must have at least 10 digits')
-        if not num.isdigit():
-            print('phone numbers must be exclusively digits')
-        print(name)
+        if len(num)!=10 or not num.isdigit():
+            var.i.error('Phone numbers must have 10 characters and be exclusively digits.')
+            return
         if self.provider_box.current() == -1:
-            print('must select provider')
+            var.i.error('Cannot add a contact without a phone provider.')
         else:
             provider = self.provider_box.get().lower()
-            print(provider)
-        pass #HUGE VALIDATION here
+        #TODO: CHECK FOR DUPLICATE CONTACT HERE
+        d.internal.var.contacts[name] = (num, provider, '0') #Name : (Phone Number, Provider, isFavorited)
+        var.contact.contacts_pane.insert('', 'end', name, values = name)
+        var.i.log(name+" successfully added to contacts")
+        self.name_string.set("")
+        self.num_string.set("")
+        self.provider_box.set("")
 
 class loginFrame:
 
@@ -162,6 +186,8 @@ class loginFrame:
             d.save_account(self.account_string.get())
         q.add(self.inactive)
         d.load_contacts(self.account_string.get())
+        var.i.log("Logged in as "+self.account_string.get()+" successfully.")
+
 
     def login(self, *args):
         self.toggleLogonButton(False)
@@ -235,9 +261,9 @@ def populateContacts(null):
     'Should typically be run on account setting fetch resoluton, and only in the main thread.'
     for item in d.internal.var.contacts:
         if d.internal.var.contacts[item][2] == '1': #we know it's favorited
-            contacts_pane.insert('', 0, item, values = item, tags = ('favorite',))
+            var.contact.contacts_pane.insert('', 0, item, values = item, tags = ('favorite',))
         else:
-            contacts_pane.insert('', 'end', item, values = item)
+            var.contact.contacts_pane.insert('', 'end', item, values = item)
 
 def mainLogout(null):
      var.i.logout_button['state'] = 'normal'
@@ -268,7 +294,6 @@ def init():
     var.l = loginFrame()
     var.c = contactWindow()
     var.i = infoFrame()
-    var.info = infoFrame()
     var.contact = contactFrame()
     var.messaging = messagingFrame()
     q = func_queue.main_fq({'genericFunction': genericFunction, 'mailException': mailException, 

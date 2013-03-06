@@ -21,12 +21,6 @@ class var:
     status = ''
     mail = None
 
-class mailException(Exception):
-    def __init__(self, error):
-        self.error = error.strip("b'")
-    def __str__(self):
-        return repr(self.error)
-
 def init():
     #any mail initialization code goes here
     while running:

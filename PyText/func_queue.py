@@ -1,5 +1,18 @@
 from collections import deque
 
+class mailException(Exception):
+    def __init__(self, error):
+        self.error = error.strip("b'")
+    def __str__(self):
+        return repr(self.error)
+
+
+class dataException(Exception):
+    def __init__(self, error):
+        self.error = error
+    def __str__(self):
+        return repr(self.error)
+
 class fq(deque):
     def __init__(self):
         self.resolving = None
