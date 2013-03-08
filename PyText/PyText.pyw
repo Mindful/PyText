@@ -41,16 +41,20 @@ class infoFrame:
         self.text = Text(self.frame, state = 'disabled', borderwidth = '2', background = 'SteelBlue', relief = 'groove', foreground = 'WhiteSmoke')
         self.text.grid(column = 0, row = 1, columnspan = 2, rowspan = 4)
         self.logout_button.grid(column = 0, row = 10, sticky = (E,S))
-        self.text.tag_configure('error', background = 'Black')
+        self.text.tag_configure('emphasis', foreground = 'Black')
         self.line = 1.0
         self.log(" --- Welcome to PyText! --- ")
-        self.log("Latest version always found at: https://github.com/Mindfulness/PyText")
+        self.log("Latest version always found at: https://github.com/Mindfulness/PyText", 32, 69)
         #self.text.configure(inactiveselectbackground=self.text.cget("selectbackground")) #foreground = 'WhiteSmoke'
 
-    def log(self, string):
+    def log(self, string, emphasis_start = 0, emphasis_end = 0):
         #self.text.update_idletasks()
         self.text['state']='normal'
         self.text.insert(self.line,string+"\n")
+        start = str(self.line).strip("0")+str(emphasis_start)
+        end = str(self.line).strip("0")+str(emphasis_end)
+        if not (emphasis_start == emphasis_end == 0):
+            self.text.tag_add('emphasis', start, end)
         self.line = self.line+1
         #stuff
         self.text['state']='disabled'
@@ -59,13 +63,14 @@ class infoFrame:
         #self.text.update_idletasks()
         self.text['state']='normal'
         self.text.insert(self.line,"Error: "+string+"\n")
-        self.text.tag_add('error',self.line, self.line+0.6)
+        self.text.tag_add('emphasis',self.line, self.line+0.6)
         self.line = self.line+1
         main.focus()
         #stuff
         self.text['state']='disabled'
 
     def logout(self):
+        d.save_contacts()
         var.i.logout_button['state'] = 'disabled'
         var.l.logon_button['state'] = 'disabled'
         var.c.close()
@@ -93,7 +98,27 @@ class contactFrame:
         self.contacts_pane['selectmode'] = 'browse' #select only one at a time
         self.contacts_pane.tag_configure('favorite', background = 'SteelBlue', foreground = 'WhiteSmoke')
         self.contacts_pane.grid(column = 0,row = 0, columnspan = 2, rowspan = 6, sticky = (N,E,S,W))
+        self.contacts_pane.bind('<Delete>', self.deleteContact)
+        self.contacts_pane.bind('<Return>', self.favoriteContact)
         self.addContact_button.grid(column = 0, row = 7, sticky = (N,E))
+
+    def deleteContact(self, null):
+        #todo: conditional this (as below) AND ALPHABETICALLY SORT/CAREFULLY INSERT CONTACTS
+        #if (confirmationWindowsEnabled && confirmationow) || !confirmationWindowsEnabled
+        item = self.contacts_pane.selection()
+        loc = self.contacts_pane.index(item)
+        if item != "":
+            self.contacts_pane.selection_set(self.contacts_pane.next(item))
+            q.add(lambda: self.contacts_pane.delete(item))
+            #self.contacts_pane.delete(item)
+            name = self.contacts_pane.item(item)['text'].strip('{}')
+            del d.internal.var.contacts[name]
+            var.i.log(name+" removed from contacts.",0,len(name))
+
+
+
+    def favoriteContact(self,null):
+        item = self.contacts_pane.selection()
 
 class contactWindow:
     #TODO: favoriting and deleting contacts
@@ -157,7 +182,7 @@ class contactWindow:
             return
         d.internal.var.contacts[name] = (num, provider, '0') #Name : (Phone Number, Provider, isFavorited)
         var.contact.contacts_pane.insert('', 'end', text = (name,), values = (name,)) #must be item inside a tuple so it takes it as a SINGLE STRING INCLUDING SPACES
-        var.i.log(name+" successfully added to contacts.")
+        var.i.log(name+" successfully added to contacts.",0,len(name))
         self.name_string.set("")
         self.num_string.set("")
         self.provider_box.set("")
@@ -187,7 +212,7 @@ class loginFrame:
             d.save_account(self.account_string.get())
         q.add(self.inactive)
         d.load_contacts(self.account_string.get())
-        var.i.log("Logged in as "+self.account_string.get()+" successfully.")
+        var.i.log("Logged in as "+self.account_string.get()+" successfully.",13,13+len(self.account_string.get()))
 
 
     def login(self, *args):

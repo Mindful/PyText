@@ -14,10 +14,12 @@ def init(deque, var):
 
 def terminate():
     'Ends the data thread and calls cleanup functions (like a last settings save)'
-    internal.q.add(lambda: internal.save_contacts(internal.var.currentAccount))
+    save_contacts()
     internal.q.add(internal.save_settings)
     internal.q.add(internal.terminate)
 
+def save_contacts():
+    internal.q.add(lambda: internal.save_contacts(internal.var.currentAccount))
 
 def enqueue(func):
     'Adds a function to the pt_data queue; best used to do something immediately after something else. MUST BE A CALLABLE FUNCTION'
