@@ -1,7 +1,7 @@
 from tkinter import *
 from tkinter import ttk
 from tkinter import messagebox
-import pt_mail as m, pt_data as d, func_queue, queue
+import pt_mail as m, pt_data as d, pt_util, queue
 
 #logout button can be double clicked, which is bad. need a generalized solution to disable buttons on use (like login)
 #so that they can't be double clicked
@@ -169,6 +169,9 @@ class contactWindow:
         if len(name) == 0:
             var.i.error('Cannot add a contact without a name.')
             return
+        if not name.isalnum():
+            var.i.error('Contact names must contain only numbers and letters.')
+            return
         num = self.num_string.get().strip()
         if len(num)!=10 or not num.isdigit():
             var.i.error('Phone numbers must have 10 characters and be exclusively digits.')
@@ -322,7 +325,7 @@ def init():
     var.i = infoFrame()
     var.contact = contactFrame()
     var.messaging = messagingFrame()
-    q = func_queue.main_fq({'genericFunction': genericFunction, 'mailException': mailException, 
+    q = pt_util.main_fq({'genericFunction': genericFunction, 'mailException': mailException, 
                          'dataException': dataException, d.internal.load_contacts: populateContacts,
                          m.internal.logon: var.l.saveLogon, m.internal.logout: mainLogout })
     d.init(q, var)

@@ -1,6 +1,6 @@
-import imaplib, email, func_queue, collections
+import imaplib, email, pt_util, collections
 
-q = func_queue.fq()
+q = pt_util.fq()
 
 mainQ = None
 running = True
