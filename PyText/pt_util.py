@@ -51,6 +51,27 @@ class main_fq(deque):
         self.append((instruction, None))
 
 
+class Contact:
+    def __init__(self, name, number, provider, favorited):
+        self.name = name
+        self.number = number
+        self.provider = provider
+        self.favorited = favorited
+
+    def __lt__(self, other):
+        if self.favorited == other.favorited:
+            return self.name.lower() < other.name.lower()
+        elif self.favorited == '1': 
+            return False
+        else: 
+            return True
+
+    def __str__(self):
+        return self.name
+
+    #todo: this must be JSON serializable
+        
+
 class ContactsList:
     def __init__(self):
         self.list = []
@@ -60,54 +81,43 @@ class ContactsList:
         if type(index) == int:
             return self.list[index]
         elif type(index) == string:
-            return self.list[self.dict[index]]
+            return self.dict[index]
         else: raise LookupError("Contact must be accessed by name or index")
+
+    def __delitem__(self, index):
+        if type(index) == int:
+            del self.dict[self.list[index].name]
+            del self.list[index]
+        elif type(index) == string:
+            self.list.remove(self[index]) #This must come first because we are using the dict to fetch the item
+            del self.dict[index]
+            #search for and remove from string
 
     def __len__(self):
         return len(self.list)
 
     def __contains__(self, item):
-        return item in self.list
+        'Searches for the contact by name, not object reference'
+        return item in self.dict.keys()
 
     def fromList(self, list):
-        #sort the list, set it to our list, and bind dictionary keys to indices
-        pass
+        self.list = sorted(list)
+        for item in self.list:
+            self.dict[item.name]=item
 
     def add(self, name, number, provider, favorited):
-        contact = (number, provider, favorited, name)
+        contact = Contact(name, number, provider, favorited)
         lo = 0
         hi = len(self.list) #insorting
         while lo < hi:
             mid = (lo+hi)//2
-            if self.contactValue(contact) < self.list[mid]: hi = mid
+            if contact < self.list[mid]: hi = mid
             else: lo = mid +1
         self.list.insert(lo, contact)
-        #TODO: UPDATE THE HASH TABLE TO REFLECT THE CHANGED INDICES (or hash directly ot items?)
-        #format is (number, provider, favorited, name)
-        pass
+        self.dict[name]=contact
+        return lo #This must return the index it inserts at, so we know where to place items in the treeview
 
-    def contactValue(self, contact):
-        str = contact[3].lower()
-        i = 10
-        val = 0
-        for c in str:
-            i = i/10
-            if c in string.ascii_lowercase: val = val+c/i
-        if contact[2] == '1':
-            val = val+100
 
-def sortContacts(list):
-    'Organizes the contats list'
-    pass
 
-def insertContact(item, list):
-    'Binary searches the contact list to find the appropriate insert location'
-    pass
-
-def contactKey(c1):
-    
-    if c1[2] == '1':
-        value = value +10
-#not sure I need any of these, pything lists have built in sorting
 
 

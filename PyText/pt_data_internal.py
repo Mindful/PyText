@@ -9,7 +9,7 @@ class var: #python's core classes are supposedly threadsafe in cPython, so I sho
     settings = {'save_account':'1', 'save_password':'1', 'default_account':'', 'confirmation_windows':'1'} 
     accounts ={} #'accountName': settings //note that settings should include password as its FIRST value
     currentAccount = ''
-    contacts = collections.OrderedDict()
+    contacts = pt_util.ContactsList()
 
     fileName = 'settings.pt'
     file = None
@@ -84,7 +84,7 @@ def load_contacts(account):
     cur = var.file.cursor()
     cur.execute("SELECT * FROM accounts WHERE account=?", (account,)) #must be a tuple, even if there is only one value
     a = cur.fetchone() #this is returning a tuple instead of a dictionary
-    var.contacts = json.loads(a[2]) #note this overrides defaults, makes testing hard
+    var.contacts.fromList(json.loads(a[2])) #note this overrides defaults, makes testing hard
     mainQ.instruction(load_contacts)
     #list = cur.fetchmany() #THIS RETURNS A LIST OF SQLITE OBJECTS, WHICH ARE DICTS
     #print(list)
@@ -92,7 +92,7 @@ def load_contacts(account):
 
 def save_contacts(account):
     cur = var.file.cursor()
-    cur.execute("UPDATE accounts SET contacts=? WHERE account=?", (json.dumps(var.contacts), account))
+    cur.execute("UPDATE accounts SET contacts=? WHERE account=?", (json.dumps(var.contacts.list), account))
     var.file.commit()
 
 

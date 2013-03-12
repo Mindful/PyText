@@ -121,7 +121,7 @@ class contactFrame:
         item = self.contacts_pane.selection()
 
 class contactWindow:
-    #TODO: favoriting and deleting contacts
+    #TODO: favoriting contacts
     def __init__(self):
         self.main = Toplevel(main)
         self.main.withdraw()
@@ -183,8 +183,8 @@ class contactWindow:
         if name in d.internal.var.contacts:
             var.i.error('You already have '+name+' as a contact.')
             return
-        d.internal.var.contacts[name] = (num, provider, '0') #Name : (Phone Number, Provider, isFavorited)
-        var.contact.contacts_pane.insert('', 'end', text = (name,), values = (name,)) #must be item inside a tuple so it takes it as a SINGLE STRING INCLUDING SPACES
+        treeloc = d.internal.var.contacts.add(name, num, provider, '0') #save the location it goes in the contact list so it goes the same place in the tree
+        var.contact.contacts_pane.insert('', treeloc, text = (name,), values = (name,)) #must be item inside a tuple so it takes it as a SINGLE STRING INCLUDING SPACES
         var.i.log(name+" successfully added to contacts.",0,len(name))
         self.name_string.set("")
         self.num_string.set("")
@@ -288,8 +288,8 @@ def mainActive():
 
 def populateContacts(null):
     'Should typically be run on account setting fetch resoluton, and only in the main thread.'
-    for item in d.internal.var.contacts:
-        if d.internal.var.contacts[item][2] == '1': #we know it's favorited
+    for item in d.internal.var.contacts: #TODO: does this work? and if it does, does it work IN ORDER?
+        if item.favorited == '1': #we know it's favorited
             var.contact.contacts_pane.insert('', 0, text = (item,), values = (item,), tags = ('favorite',))
         else:
             var.contact.contacts_pane.insert('', 'end', text = (item,), values = (item,)) #must be item inside a tuple so it takes it as a SINGLE STRING INCLUDING SPACES
