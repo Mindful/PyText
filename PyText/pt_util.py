@@ -51,7 +51,7 @@ class main_fq(deque):
         self.append((instruction, None))
 
 
-class Contact:
+class Contact():
     def __init__(self, name, number, provider, favorited):
         self.name = name
         self.number = number
@@ -69,7 +69,6 @@ class Contact:
     def __str__(self):
         return self.name
 
-    #todo: this must be JSON serializable
         
 
 class ContactsList:
@@ -116,8 +115,6 @@ class ContactsList:
         self.list.insert(lo, contact)
         self.dict[name]=contact
         return lo #This must return the index it inserts at, so we know where to place items in the treeview
-
-
 
 
 

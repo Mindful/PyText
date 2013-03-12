@@ -35,6 +35,21 @@ def encode64_string(string):
 def decode64_string(string):
     return base64.b64decode(string).decode()
 
+def json_contact(jsonDict):
+    #this is iterating over the list and causing problems
+    try:
+        return pt_util.Contact(jsonDict['name'], jsonDict['number'], jsonDict['provider'], jsonDict['favorited'])
+    except Exception as e:
+        mainQ.dataException('JSON error loading contacts:'+str(e))
+
+class ContactEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, pt_util.Contact):
+            return obj.__dict__
+        else:
+            mainQ.dataException('JSON error saving contacts.')
+
+
 
 
 def init(mainVar):
@@ -84,7 +99,7 @@ def load_contacts(account):
     cur = var.file.cursor()
     cur.execute("SELECT * FROM accounts WHERE account=?", (account,)) #must be a tuple, even if there is only one value
     a = cur.fetchone() #this is returning a tuple instead of a dictionary
-    var.contacts.fromList(json.loads(a[2])) #note this overrides defaults, makes testing hard
+    var.contacts.fromList(json.loads(a[2], object_hook=json_contact)) #note this overrides defaults, makes testing hard
     mainQ.instruction(load_contacts)
     #list = cur.fetchmany() #THIS RETURNS A LIST OF SQLITE OBJECTS, WHICH ARE DICTS
     #print(list)
@@ -92,7 +107,7 @@ def load_contacts(account):
 
 def save_contacts(account):
     cur = var.file.cursor()
-    cur.execute("UPDATE accounts SET contacts=? WHERE account=?", (json.dumps(var.contacts.list), account))
+    cur.execute("UPDATE accounts SET contacts=? WHERE account=?", (json.dumps(var.contacts.list, cls = ContactEncoder), account))
     var.file.commit()
 
 

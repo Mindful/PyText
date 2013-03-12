@@ -169,7 +169,11 @@ class contactWindow:
         if len(name) == 0:
             var.i.error('Cannot add a contact without a name.')
             return
-        if not name.isalnum():
+        for word in name.split():
+            nameValid = word.isalnum() 
+        if not nameValid:
+            #TODO: this has to accept whitespace and alphanumberics
+            #split the string and 
             var.i.error('Contact names must contain only numbers and letters.')
             return
         num = self.num_string.get().strip()
