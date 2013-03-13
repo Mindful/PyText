@@ -6,7 +6,7 @@ mainQ = None
 running = True
 
 class var: #python's core classes are supposedly threadsafe in cPython, so I should be able to just read/write this from the main thread
-    settings = {'save_account':'1', 'save_password':'1', 'default_account':'', 'confirmation_windows':'1'} 
+    settings = {'save_account':'1', 'save_password':'1', 'default_account':'', 'confirmation_windows':'0'} 
     accounts ={} #'accountName': settings //note that settings should include password as its FIRST value
     currentAccount = ''
     contacts = pt_util.ContactsList()
@@ -84,7 +84,7 @@ def terminate():
 def save_account(account, password, favorites):
     cur = var.file.cursor()
     cur.execute("BEGIN")
-    cur.execute("INSERT OR IGNORE INTO accounts VALUES (?, ?, ?)", (account, '', '{}'))
+    cur.execute("INSERT OR IGNORE INTO accounts VALUES (?, ?, ?)", (account, '', '[]')) #Contacts must start as empty list!
     if password:
         cur.execute("UPDATE accounts SET password=? WHERE account=?", (encode64_string(password,), account))
     else:

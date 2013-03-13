@@ -62,9 +62,9 @@ class Contact():
         if self.favorited == other.favorited:
             return self.name.lower() < other.name.lower()
         elif self.favorited == '1': 
-            return False
-        else: 
             return True
+        else: 
+            return False
 
     def __str__(self):
         return self.name
@@ -79,7 +79,7 @@ class ContactsList:
     def __getitem__(self, index):
         if type(index) == int:
             return self.list[index]
-        elif type(index) == string:
+        elif type(index) == str:
             return self.dict[index]
         else: raise LookupError("Contact must be accessed by name or index")
 
@@ -87,7 +87,7 @@ class ContactsList:
         if type(index) == int:
             del self.dict[self.list[index].name]
             del self.list[index]
-        elif type(index) == string:
+        elif type(index) == str:
             self.list.remove(self[index]) #This must come first because we are using the dict to fetch the item
             del self.dict[index]
             #search for and remove from string

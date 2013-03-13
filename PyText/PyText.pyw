@@ -34,6 +34,7 @@ class var:
     updatables = set()
 
 class infoFrame: 
+    #todo: scrollbar and max log length
     def __init__(self):
         self.frame = ttk.Frame(mainFrame)
         self.logout_button= ttk.Button(self.frame, text = "Logout", command = self.logout)
@@ -100,28 +101,40 @@ class contactFrame:
         self.contacts_pane.grid(column = 0,row = 0, columnspan = 2, rowspan = 6, sticky = (N,E,S,W))
         self.contacts_pane.bind('<Delete>', self.deleteContact)
         self.contacts_pane.bind('<Return>', self.favoriteContact)
+        #self.tree.bind("<Double-1>", self.OnDoubleClick) <---TODO
         self.addContact_button.grid(column = 0, row = 7, sticky = (N,E))
 
     def deleteContact(self, null):
-        #todo: conditional this (as below) AND ALPHABETICALLY SORT/CAREFULLY INSERT CONTACTS
-        #if (confirmationWindowsEnabled && confirmationow) || !confirmationWindowsEnabled
         item = self.contacts_pane.selection()
         loc = self.contacts_pane.index(item)
         if item != "":
-            self.contacts_pane.selection_set(self.contacts_pane.next(item))
-            q.add(lambda: self.contacts_pane.delete(item))
-            #self.contacts_pane.delete(item)
-            name = self.contacts_pane.item(item)['text'].strip('{}')
-            del d.internal.var.contacts[name]
-            var.i.log(name+" removed from contacts.",0,len(name))
+             name = self.contacts_pane.item(item)['text'].strip('{}')
+             if d.internal.var.settings['confirmation_windows']=='0' or messagebox.askyesno("Delete Contact?", "Remove "+name+" from contacts?"):
+                self.contacts_pane.selection_set(self.contacts_pane.next(item))
+                q.add(lambda: self.contacts_pane.delete(item))
+                #self.contacts_pane.delete(item)
+                del d.internal.var.contacts[name]
+                var.i.log(name+" removed from contacts.",0,len(name))
 
 
 
     def favoriteContact(self,null):
         item = self.contacts_pane.selection()
+        name = self.contacts_pane.item(item)['text'].strip('{}')
+        contact = d.internal.var.contacts[name]
+        del d.internal.var.contacts[name]
+        if contact.favorited == '0':
+            treeloc = d.internal.var.contacts.add(contact.name, contact.number, contact.provider, '1') #remove, change, readd
+            self.contacts_pane.item(item, tags = ('favorite',))
+            self.contacts_pane.move(item, '', treeloc)
+            var.i.log(name+" marked as a favorite.",0,len(name))
+        else:
+            treeloc = d.internal.var.contacts.add(contact.name, contact.number, contact.provider, '0') #remove, change, readd
+            self.contacts_pane.item(item, tags = ())
+            self.contacts_pane.move(item, '', treeloc)
+            var.i.log(name+" is no longer a favorite.",0,len(name))
 
 class contactWindow:
-    #TODO: favoriting contacts
     def __init__(self):
         self.main = Toplevel(main)
         self.main.withdraw()
@@ -172,8 +185,6 @@ class contactWindow:
         for word in name.split():
             nameValid = word.isalnum() 
         if not nameValid:
-            #TODO: this has to accept whitespace and alphanumberics
-            #split the string and 
             var.i.error('Contact names must contain only numbers and letters.')
             return
         num = self.num_string.get().strip()
@@ -292,7 +303,7 @@ def mainActive():
 
 def populateContacts(null):
     'Should typically be run on account setting fetch resoluton, and only in the main thread.'
-    for item in d.internal.var.contacts: #TODO: does this work? and if it does, does it work IN ORDER?
+    for item in d.internal.var.contacts: #No custom definition for this, but default iteration seems to work with __getitem__ defined
         if item.favorited == '1': #we know it's favorited
             var.contact.contacts_pane.insert('', 0, text = (item,), values = (item,), tags = ('favorite',))
         else:
@@ -313,7 +324,7 @@ def dataException(ex):
     dataExceptionQ.append(ex)
 
 def quit(): #can add a confirmation window in here to check with users if they REALLY want to quit
-    if messagebox.askyesno("Quit?", "Close PyText?"):
+    if d.internal.var.settings['confirmation_windows']=='0' or messagebox.askyesno("Quit?", "Close PyText?"):
         global running
         running = False
         var.c.main.destroy()
