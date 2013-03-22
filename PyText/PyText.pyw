@@ -90,7 +90,7 @@ class messagingFrame:
 
 class contactFrame:
     def __init__(self):
-        #TODO: this should not be resizable
+        #TODO: column should not be resizable. may have to avoid displaying column header
         self.frame = ttk.Frame(mainFrame)
         self.frame.grid(column = 3, row = 0, columnspan = 2, rowspan = 7)
         self.addContact_button = ttk.Button(self.frame, text = "Add Contact", command = lambda: var.c.open())
@@ -101,6 +101,7 @@ class contactFrame:
         self.contacts_pane.grid(column = 0,row = 0, columnspan = 2, rowspan = 6, sticky = (N,E,S,W))
         self.contacts_pane.bind('<Delete>', self.deleteContact)
         self.contacts_pane.bind('<Return>', self.favoriteContact)
+        #self.contacts_pane.column('Contacts', stretch = False, minwidth = 200)
         #self.tree.bind("<Double-1>", self.OnDoubleClick) <---TODO
         self.addContact_button.grid(column = 0, row = 7, sticky = (N,E))
 
