@@ -9,9 +9,10 @@ import pt_mail as m, pt_data as d, pt_util, queue
 #---------Main
 main = Tk()
 main.title("PyText")
-main.title("PyText") #shift+tab is mass unindent, tab is mass indent. good times
-main.resizable(False, False)
-mainFrame = ttk.Frame(main, padding="40 40 40 40") #can always rowconfigure and columnconfigure
+main.title("PyText")
+main.resizable(False, False) #TODO: THIS LINE SHOULD NOT BE COMMENTED OUT
+mainFrame = ttk.Frame(main, padding="40 40 40 40") 
+#can always rowconfigure and columnconfigure
 #----------end Main
 
 running = True
@@ -37,19 +38,33 @@ class infoFrame:
     #todo: scrollbar and max log length
     def __init__(self):
         self.frame = ttk.Frame(mainFrame)
+        self.frame.grid(column = 0, row = 0, sticky = (N,W,S))
+        self.textframe = ttk.Frame(self.frame)
         self.logout_button= ttk.Button(self.frame, text = "Logout", command = self.logout)
-        self.frame.grid(column = 0, row = 0, columnspan = 2, rowspan = 7)
-        self.text = Text(self.frame, state = 'disabled', borderwidth = '2', background = 'SteelBlue', relief = 'groove', foreground = 'WhiteSmoke')
-        self.text.grid(column = 0, row = 1, columnspan = 2, rowspan = 4)
-        self.logout_button.grid(column = 0, row = 10, sticky = (E,S))
+        self.text = Text(self.textframe, state = 'disabled', borderwidth = '2', background = 'SteelBlue', relief = 'groove', foreground = 'WhiteSmoke', insertofftime = '0', font = ('Helvetica', '10'))
+        self.text_scrollbar = ttk.Scrollbar(self.frame, orient=VERTICAL, command=self.text.yview)
+        self.text['yscrollcommand']=self.text_scrollbar.set
+        self.text_scrollbar.grid(column = 0, row = 0, rowspan = 7, sticky = (N,E,S,W))
+        #self.text.grid(column = 1, row = 1, columnspan = 2, rowspan = 6, sticky = (N,E,S,W))
+        self.text.grid(column = 0, row = 0, sticky = (N,E,S,W))
+        self.textframe.grid_propagate(False)
+        self.textframe.grid_rowconfigure(0, weight=1)
+        self.textframe.grid_columnconfigure(0, weight=1)
+        self.textframe['height']=400
+        self.textframe['width']=450
+        ttk.Label(self.frame, text = "PyText Log", relief = "raised", background = "White", anchor = "center").grid(column = 1, row = 0, columnspan = 2, sticky = (N,E,S,W))
+        self.textframe.grid(column = 1, row = 1, columnspan = 2, rowspan = 6, sticky = (N,E,S,W))
+        self.logout_button.grid(column = 1, row = 8, sticky = (E,S))
         self.text.tag_configure('emphasis', foreground = 'Black')
+        self.text.bind("<Up>", lambda x: self.text.yview('scroll', '-1', 'units'))
+        self.text.bind("<Down>", lambda x: self.text.yview('scroll', '1', 'units'))
         self.line = 1.0
         self.log(" --- Welcome to PyText! --- ")
         self.log("Latest version always found at: https://github.com/Mindfulness/PyText", 32, 69)
         #self.text.configure(inactiveselectbackground=self.text.cget("selectbackground")) #foreground = 'WhiteSmoke'
 
     def log(self, string, emphasis_start = 0, emphasis_end = 0):
-        #self.text.update_idletasks()
+        self.text.yview('moveto', '1.0')
         self.text['state']='normal'
         self.text.insert(self.line,string+"\n")
         start = str(self.line).strip("0")+str(emphasis_start)
@@ -90,20 +105,34 @@ class messagingFrame:
 
 class contactFrame:
     def __init__(self):
-        #TODO: column should not be resizable. may have to avoid displaying column header
         self.frame = ttk.Frame(mainFrame)
-        self.frame.grid(column = 3, row = 0, columnspan = 2, rowspan = 7)
-        self.addContact_button = ttk.Button(self.frame, text = "Add Contact", command = lambda: var.c.open())
-        self.contacts_pane = ttk.Treeview(self.frame, show = 'headings', columns = 'Contacts') 
+        self.frame.grid(column = 2, row = 0, sticky = (N,S,E))
+        self.contactsframe = ttk.Frame(self.frame)
+        self.addContact_button = ttk.Button(self.frame, text = "Add Contact", command = lambda: var.c.open(None))
+        self.deleteContact_button = ttk.Button(self.frame, text = "Delete Contact", command = lambda: self.deleteContact(None))
+        self.contacts_pane = ttk.Treeview(self.contactsframe, show = '', columns = 'Contacts') 
+        self.contacts_scrollbar = ttk.Scrollbar(self.frame, orient=VERTICAL, command=self.contacts_pane.yview)
+        self.contacts_pane['yscrollcommand']=self.contacts_scrollbar.set
         self.contacts_pane.heading('Contacts', text = 'Contacts')
         self.contacts_pane['selectmode'] = 'browse' #select only one at a time
         self.contacts_pane.tag_configure('favorite', background = 'SteelBlue', foreground = 'WhiteSmoke')
-        self.contacts_pane.grid(column = 0,row = 0, columnspan = 2, rowspan = 6, sticky = (N,E,S,W))
         self.contacts_pane.bind('<Delete>', self.deleteContact)
-        self.contacts_pane.bind('<Return>', self.favoriteContact)
-        #self.contacts_pane.column('Contacts', stretch = False, minwidth = 200)
+        self.contacts_pane.bind('<Return>', var.c.open)
+        self.contacts_pane.bind('<f>', self.favoriteContact)
         #self.tree.bind("<Double-1>", self.OnDoubleClick) <---TODO
-        self.addContact_button.grid(column = 0, row = 7, sticky = (N,E))
+        ttk.Label(self.frame, text = "Contacts", relief = "raised", background = "White", anchor = "center").grid(column = 0, row = 0, columnspan = 2, sticky = (N,E,S,W))
+        self.contacts_scrollbar.grid(column = 2, row = 0, rowspan = 7, sticky = (N,E,S,W))
+        self.contacts_pane.grid(column = 0, row = 0, sticky = (N,E,S,W))
+        self.contacts_pane.column('Contacts', width='175')
+        self.contactsframe.grid_propagate(False)
+        self.contactsframe.grid_rowconfigure(0, weight=1)
+        self.contactsframe.grid_columnconfigure(0, weight=1)
+        self.contactsframe.grid(column = 0,row = 1, columnspan = 2, rowspan = 6, sticky = (N,E,S,W))
+        self.contactsframe['height']=400
+        self.contactsframe['width']=180
+        #self.contacts_pane.grid(column = 0,row = 1, columnspan = 2, rowspan = 6, sticky = (N,E,S,W))
+        self.addContact_button.grid(column = 0, row = 8, sticky = (N,W,E))
+        self.deleteContact_button.grid(column = 1, row = 8, sticky = (N,W,E))
 
     def deleteContact(self, null):
         item = self.contacts_pane.selection()
@@ -169,7 +198,7 @@ class contactWindow:
         #Add Button
         ttk.Button(self.frame, text = "Add Contact", command = self.addContact).grid(column = 1, row = 3, sticky = (W,E), columnspan = 2)
 
-    def open(self): #this may need to be added and removed from updatables, otherwise we need to figure out relevant error handling
+    def open(self, null): #this may need to be added and removed from updatables, otherwise we need to figure out relevant error handling
         self.main.state('normal')
         self.main.lift()
         #self.main.focus()
