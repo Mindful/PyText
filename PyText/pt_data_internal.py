@@ -1,4 +1,4 @@
-import sqlite3, os, base64, pt_util, json, collections
+import sqlite3, os, base64, pt_util, json, collections, configparser
 
 q = pt_util.fq() 
 
@@ -6,13 +6,16 @@ mainQ = None
 running = True
 
 class var: #python's core classes are supposedly threadsafe in cPython, so I should be able to just read/write this from the main thread
-    settings = {'save_account':'1', 'save_password':'1', 'default_account':'', 'confirmation_windows':'0'} 
+    settings = {'save_account': '1', 'save_password': '1', 'default_account':'', 'confirmation_windows': '0'} 
     accounts ={} #'accountName': settings //note that settings should include password as its FIRST value
     currentAccount = ''
     contacts = pt_util.ContactsList()
+    lastFetch = 0
 
-    fileName = 'settings.pt'
+    fileName = 'data.pt'
+    settingsName = 'config.ini'
     file = None
+    config = None
 
 def encode64_dict(dict):
     newDict = {}
@@ -53,19 +56,26 @@ class ContactEncoder(json.JSONEncoder):
 
 
 def init(mainVar):
-    build = not os.path.exists(var.fileName)
+    build = (not os.path.exists(var.fileName))
+    buildSettings = (not os.path.exists(var.settingsName))
     var.file = sqlite3.connect(var.fileName)
+    var.config = configparser.ConfigParser()
     var.file.row_factory = sqlite3.Row #so info is returned as dicts
     if build:
         var.file = sqlite3.connect(var.fileName)
         cur = var.file.cursor()
         cur.execute("BEGIN") #this makes it all one action, and saves a decent amount of overhead
         cur.execute("CREATE TABLE accounts (account TEXT, password TEXT, contacts TEXT, UNIQUE(account))") #no duplicate accounts
-        cur.execute("CREATE TABLE settings (setting TEXT, value TEXT, UNIQUE(setting))")
         cur.execute("CREATE TABLE mail (uid INTEGER PRIMARY KEY ASC, sender TEXT, recipient TEXT, message TEXT)") #this must be ascending; descending primary keys just don't work apparently
         #sorting by rowids is much faster, and there could be a LOT of messages, so the above uses a primary key
-        cur.executemany("INSERT INTO settings VALUES (?, ?)", list(var.settings.items()))
         var.file.commit()
+    if buildSettings:
+        var.config['settings'] = var.settings
+        var.config['fetch'] = {'last_fetch': var.lastFetch}
+        with open(var.settingsName, 'w') as configfile:
+            var.config.write(configfile)
+        #I think it autocloses after this
+        
     load()
     l = mainVar.l
     l.account_string.set(var.settings['default_account'])
@@ -112,20 +122,23 @@ def save_contacts(account):
 
 
 def save_settings():
-    cur = var.file.cursor()
-    #list([[v,k] for k,v in encode64_dict(var.settings).items()]) is inverting the dict and making it a list,
-    #since in this case, it's value, setting (instead of the norm setting, value)
-    cur.executemany("UPDATE settings SET value=? WHERE setting=?", list([[v,k] for k,v in var.settings.items()]))  
-    var.file.commit()
+    print(var.settings)
+    var.config['settings'] = var.settings
+    print(var.config['settings'])
+    var.config['fetch'] = {'last_fetch': var.lastFetch}
+    with open(var.settingsName, 'w') as configfile:
+        var.config.write(configfile)
+
+def load_settings():
+    var.config.read(var.settingsName)
+    var.settings = dict(var.config['settings'])
+    var.lastFetch = var.config['fetch']['last_fetch']
 
 
 def load():
+    load_settings()
     cur = var.file.cursor()
-    cur.arraysize = 0 #no max on selected settings - ARRAYSIZE MUST BE SET TO >1 TO GET MORE THAN 1 RESULT
-    cur.execute("SELECT * FROM settings")
-    list = cur.fetchmany()
-    for item in list:
-        var.settings[item[0]] = item[1]
+    cur.arraysize = 0 #no max on selected accounts
     cur.execute("SELECT * FROM accounts")
     list = cur.fetchmany()
     for item in list:
