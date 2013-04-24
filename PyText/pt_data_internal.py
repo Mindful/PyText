@@ -1,6 +1,7 @@
-import sqlite3, os, base64, pt_util, json, collections, configparser, pt_mail_internal
+import sqlite3, os, base64, pt_util, json, collections, configparser, pt_mail
 
 q = pt_util.fq() 
+
 
 mainQ = None
 running = True
@@ -91,6 +92,20 @@ def terminate():
     running = False
     
 
+
+def save_messages(messagelist):
+    list = []
+    for item in messagelist:
+        UID = int(item.uid)
+        if UID > var.lastFetch:
+            var.lastFetch = UID #update most recent UID if it's > than old one
+        list.append(item.tuple())
+    name = var.currentAccount.replace("@","_").replace(".","_") #TABLENAME FORMATTING
+    cur = var.file.cursor()
+    cur.execute("BEGIN")
+    cur.executemany("INSERT OR IGNORE INTO "+name+" VALUES (?, ?, ?)", list)
+    var.file.commit()
+
 def save_account(account, password, favorites):
     cur = var.file.cursor()
     cur.execute("BEGIN")
@@ -134,7 +149,7 @@ def save_settings():
 def load_settings():
     var.config.read(var.settingsName)
     var.settings = dict(var.config['settings'])
-    var.lastFetch = var.config['fetch']['last_fetch']
+    var.lastFetch = int(var.config['fetch']['last_fetch'])
 
 
 def load():

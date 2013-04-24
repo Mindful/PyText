@@ -1,6 +1,7 @@
-import imaplib, email, pt_util, collections, time, pt_data_internal
+import imaplib, email, pt_util, collections, time, pt_data
 
 q = pt_util.fq()
+
 
 mainQ = None
 running = True
@@ -89,6 +90,7 @@ def logon(account, password):
         mainQ.mailException(str(e))
         return
     if check(): #logon successful
+        pt_data.internal.var.currentAccount = account
         fetchAll()
         mainQ.instruction(logon)
 
@@ -103,16 +105,12 @@ def logout():
 
 
 def fetchAll():
-    #fetchTime = imaplib.Time2Internaldate(time.time()).strip('"')
-    #fetchTime = fetchTime[:fetchTime.find(" ")]
-
-    fetchTime = "1-Nov-2009"
 
     list = addressesList()
     searchString = 'or '*(len(list)-1)
     for item in list:
         searchString += ('FROM "' + item +'" ')
-    searchString = searchString.strip()+' SINCE '+ fetchTime
+    searchString = searchString.strip()+' UID '+'200'+':*'
     print(searchString)
     var.status, data = var.mail.UID('search', None, searchString)
     if data == [b'']: return #IF DATA IS EMPTY, RETURN HERE
@@ -123,11 +121,13 @@ def fetchAll():
         fetch+= d+','
     fetch = fetch.strip(',')
     var.status, texts = var.mail.UID('fetch', fetch, '(RFC822)')
+    results = []
     file = open('mail.txt', 'w')
     for a in texts:
         ms = parseEmail(a)
         #file.write(str(a))
         if ms:
+            results.append(ms)
             print(ms.sender+' '+ms.uid)
             file.write(str(ms.text)+'\n\n')
             #print(re.items())
@@ -135,14 +135,10 @@ def fetchAll():
             pass
             #parse the possible values of other parts of the list; seen so far is b')' and b' FLAGS (\\Seen))'
 
+    pt_data.save_messages(results)
+    #TODO IMPORTANT - pass messages to gui thread somehow, probably drop them in queue tagged messagelist
     file.close()
     print(fetch)
-    if pt_data_internal.var.lastFetch != fetchTime:
-        pt_data_internal.var.lastFetch != fetchTime
-        #reset the log of messages we've already fetched from today
-    else:
-        pass
-        #add the fetched messages to the log of messages we've already fetched from today
 
 def parseEmail(emailTuple):
     if isinstance(emailTuple, tuple):

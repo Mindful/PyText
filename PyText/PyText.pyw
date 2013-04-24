@@ -1,16 +1,19 @@
 from tkinter import *
 from tkinter import ttk
 from tkinter import messagebox
-import pt_mail as m, pt_data as d, pt_util, queue
+import pt_mail as m, pt_data as d, pt_util, queue, pt_data_internal, pt_mail_internal
 
 #logout button can be double clicked, which is bad. need a generalized solution to disable buttons on use (like login)
 #so that they can't be double clicked
+
+dVar = pt_data_internal.var
+mVar = pt_mail_internal.var
 
 #---------Main
 main = Tk()
 main.title("PyText")
 main.title("PyText")
-main.resizable(False, False) #TODO: THIS LINE SHOULD NOT BE COMMENTED OUT
+main.resizable(False, False) 
 mainFrame = ttk.Frame(main, padding="40 40 40 40") 
 #can always rowconfigure and columnconfigure
 #----------end Main
@@ -139,11 +142,11 @@ class contactFrame:
         loc = self.contacts_pane.index(item)
         if item != "":
              name = self.contacts_pane.item(item)['text'].strip('{}')
-             if d.internal.var.settings['confirmation_windows']=='0' or messagebox.askyesno("Delete Contact?", "Remove "+name+" from contacts?"):
+             if dVar.settings['confirmation_windows']=='0' or messagebox.askyesno("Delete Contact?", "Remove "+name+" from contacts?"):
                 self.contacts_pane.selection_set(self.contacts_pane.next(item))
                 q.add(lambda: self.contacts_pane.delete(item))
                 #self.contacts_pane.delete(item)
-                del d.internal.var.contacts[name]
+                del dVar.contacts[name]
                 var.i.log(name+" removed from contacts.",0,len(name))
 
 
@@ -151,15 +154,15 @@ class contactFrame:
     def favoriteContact(self,null):
         item = self.contacts_pane.selection()
         name = self.contacts_pane.item(item)['text'].strip('{}')
-        contact = d.internal.var.contacts[name]
-        del d.internal.var.contacts[name]
+        contact = dVar.contacts[name]
+        del dVar.contacts[name]
         if contact.favorited == '0':
-            treeloc = d.internal.var.contacts.add(contact.name, contact.number, contact.provider, '1') #remove, change, readd
+            treeloc = dVar.contacts.add(contact.name, contact.number, contact.provider, '1') #remove, change, readd
             self.contacts_pane.item(item, tags = ('favorite',))
             self.contacts_pane.move(item, '', treeloc)
             var.i.log(name+" marked as a favorite.",0,len(name))
         else:
-            treeloc = d.internal.var.contacts.add(contact.name, contact.number, contact.provider, '0') #remove, change, readd
+            treeloc = dVar.contacts.add(contact.name, contact.number, contact.provider, '0') #remove, change, readd
             self.contacts_pane.item(item, tags = ())
             self.contacts_pane.move(item, '', treeloc)
             var.i.log(name+" is no longer a favorite.",0,len(name))
@@ -180,7 +183,7 @@ class contactWindow:
         self.name_string = StringVar()
         self.num_string = StringVar()
         values = []
-        for item in m.internal.var.addresses.keys():
+        for item in mVar.addresses.keys():
             values.append(capitalizeWords(item))
         self.name_entry = ttk.Entry(self.entryFrame, textvariable = self.name_string)
         self.name_entry.grid(column = 0, row = 0, sticky = (W,E))
@@ -225,10 +228,10 @@ class contactWindow:
             var.i.error('Cannot add a contact without a phone provider.')
             return
         provider = self.provider_box.get().lower()
-        if name in d.internal.var.contacts:
+        if name in dVar.contacts:
             var.i.error('You already have '+name+' as a contact.')
             return
-        treeloc = d.internal.var.contacts.add(name, num, provider, '0') #save the location it goes in the contact list so it goes the same place in the tree
+        treeloc = dVar.contacts.add(name, num, provider, '0') #save the location it goes in the contact list so it goes the same place in the tree
         var.contact.contacts_pane.insert('', treeloc, text = (name,), values = (name,)) #must be item inside a tuple so it takes it as a SINGLE STRING INCLUDING SPACES
         var.i.log(name+" successfully added to contacts.",0,len(name))
         self.name_string.set("")
@@ -248,15 +251,15 @@ class loginFrame:
             self.logon_button['state'] = 'disabled'
 
     def saveLogon(self, null): #settings are saved on shutdown or manually; don't need to save default_account here
-        saveAccount =  d.internal.var.settings['default_account'].lower() != self.account_string.get().lower() and d.internal.var.settings['save_account'] == '1'
-        savePassword = d.internal.var.settings.get(self.account_string.get(), '') != self.password_string.get() and d.internal.var.settings['save_password'] == '1'
+        saveAccount =  dVar.settings['default_account'].lower() != self.account_string.get().lower() and dVar.settings['save_account'] == '1'
+        savePassword = dVar.settings.get(self.account_string.get(), '') != self.password_string.get() and dVar.settings['save_password'] == '1'
         if saveAccount:
-            d.internal.var.settings['default_account'] = self.account_string.get()
+            dVar.settings['default_account'] = self.account_string.get()
         if savePassword:
-            d.internal.var.accounts[self.account_string.get()] = self.password_string.get()
+            dVar.accounts[self.account_string.get()] = self.password_string.get()
             d.save_account(self.account_string.get(), self.password_string.get())
         else:
-            d.internal.var.accounts[self.account_string.get()] = ''
+            dVar.accounts[self.account_string.get()] = ''
             d.save_account(self.account_string.get())
         q.add(self.inactive)
         d.load_contacts(self.account_string.get())
@@ -333,7 +336,7 @@ def mainActive():
 
 def populateContacts(null):
     'Should typically be run on account setting fetch resoluton, and only in the main thread.'
-    for item in d.internal.var.contacts: #No custom definition for this, but default iteration seems to work with __getitem__ defined
+    for item in dVar.contacts: #No custom definition for this, but default iteration seems to work with __getitem__ defined
         if item.favorited == '1': #we know it's favorited
             var.contact.contacts_pane.insert('', 0, text = (item,), values = (item,), tags = ('favorite',))
         else:
@@ -354,7 +357,7 @@ def dataException(ex):
     dataExceptionQ.append(ex)
 
 def quit(): #can add a confirmation window in here to check with users if they REALLY want to quit
-    if d.internal.var.settings['confirmation_windows']=='0' or messagebox.askyesno("Quit?", "Close PyText?"):
+    if dVar.settings['confirmation_windows']=='0' or messagebox.askyesno("Quit?", "Close PyText?"):
         global running
         running = False
         var.c.main.destroy()

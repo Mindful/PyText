@@ -41,3 +41,7 @@ def load_settings():
     'Load general PyText settings.'
     internal.q.add(internal.load_settings)
 
+def save_messages(messagelist):
+    'Save a list of msg objects into the appropriate sql table'
+    internal.q.add(lambda: internal.save_messages(messagelist))
+
