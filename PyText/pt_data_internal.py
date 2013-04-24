@@ -1,4 +1,4 @@
-import sqlite3, os, base64, pt_util, json, collections, configparser
+import sqlite3, os, base64, pt_util, json, collections, configparser, pt_mail_internal
 
 q = pt_util.fq() 
 
@@ -66,7 +66,7 @@ def init(mainVar):
         cur = var.file.cursor()
         cur.execute("BEGIN") #this makes it all one action, and saves a decent amount of overhead
         cur.execute("CREATE TABLE accounts (account TEXT, password TEXT, contacts TEXT, UNIQUE(account))") #no duplicate accounts
-        cur.execute("CREATE TABLE mail (uid INTEGER PRIMARY KEY ASC, sender TEXT, recipient TEXT, message TEXT)") #this must be ascending; descending primary keys just don't work apparently
+        #this must be ascending; descending primary keys just don't work apparently
         #sorting by rowids is much faster, and there could be a LOT of messages, so the above uses a primary key
         var.file.commit()
     if buildSettings:
@@ -95,6 +95,8 @@ def save_account(account, password, favorites):
     cur = var.file.cursor()
     cur.execute("BEGIN")
     cur.execute("INSERT OR IGNORE INTO accounts VALUES (?, ?, ?)", (account, '', '[]')) #Contacts must start as empty list!
+    name = account.replace("@","_").replace(".","_") #TABLENAME FORMATTING
+    cur.execute("CREATE TABLE IF NOT EXISTS "+name+" (uid INTEGER PRIMARY KEY ASC, sender TEXT, message TEXT)")
     if password:
         cur.execute("UPDATE accounts SET password=? WHERE account=?", (encode64_string(password,), account))
     else:

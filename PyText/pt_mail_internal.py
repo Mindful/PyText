@@ -25,6 +25,20 @@ class var: #there are more addresses; like vzwpix.com, stuff for multimedia mess
     status = ''
     mail = None
 
+class msg:
+    def __init__(self, text, sender, uid):
+        self.text = text
+        self.sender = sender
+        self.uid = uid
+
+    def __str__(self):
+        return self.text
+
+    def tuple(self):
+        return (self.uid, self.sender, self.text)
+
+
+
 
 
 def addressesList():
@@ -96,7 +110,6 @@ def fetchAll():
 
     list = addressesList()
     searchString = 'or '*(len(list)-1)
-    #searchString = ('or '*(len(list)-1))
     for item in list:
         searchString += ('FROM "' + item +'" ')
     searchString = searchString.strip()+' SINCE '+ fetchTime
@@ -109,18 +122,14 @@ def fetchAll():
     for d in list:
         fetch+= d+','
     fetch = fetch.strip(',')
-    #print(fetch)
     var.status, texts = var.mail.UID('fetch', fetch, '(RFC822)')
-    #print(texts) #this is what's being called; we should stop that
-    #print('<>')
-    #print(texts)
     file = open('mail.txt', 'w')
-    #print((texts))
     for a in texts:
-        if isinstance(a, tuple): #this is to test if it's am email; otherwise it's a single informative bytestring
-            #print(a[1])
-            re = email.message_from_bytes(a[1])
-            file.write(str(re.items())+'\n\n')
+        ms = parseEmail(a)
+        #file.write(str(a))
+        if ms:
+            print(ms.sender+' '+ms.uid)
+            file.write(str(ms.text)+'\n\n')
             #print(re.items())
         else:
             pass
@@ -128,7 +137,24 @@ def fetchAll():
 
     file.close()
     print(fetch)
-    pt_data_internal.var.lastFetch = fetchTime
-            
-    #raw_email = email.message_from_bytes(texts[0][1])
-    #print(raw_email['From'])
+    if pt_data_internal.var.lastFetch != fetchTime:
+        pt_data_internal.var.lastFetch != fetchTime
+        #reset the log of messages we've already fetched from today
+    else:
+        pass
+        #add the fetched messages to the log of messages we've already fetched from today
+
+def parseEmail(emailTuple):
+    if isinstance(emailTuple, tuple):
+        #get uid by searching for "UID" and then getting the next word
+        metadata = emailTuple[0].decode().split(' ')
+        for x in range(0, len(metadata)):
+            if metadata[x].find('UID')!=-1:
+                uid = metadata[x+1]
+        mail = email.message_from_bytes(emailTuple[1])
+        for part in mail.walk():
+            if part.get_content_type()=='text/plain':
+                text = part.get_payload().strip()
+                break
+        return msg(text, mail['From'], uid)
+    else: return False
