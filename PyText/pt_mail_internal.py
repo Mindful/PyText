@@ -27,16 +27,18 @@ class var: #there are more addresses; like vzwpix.com, stuff for multimedia mess
     mail = None
 
 class msg:
-    def __init__(self, text, sender, uid):
+    def __init__(self, text, address, uid, sent):
+        'Message body, sender address (converted to phone #), UID, and 1 for sent or 0 for received'
         self.text = text
-        self.sender = sender
+        self.number = address.rpartition('@')[0]
         self.uid = uid
+        self.sent = sent
 
     def __str__(self):
         return self.text
 
     def tuple(self):
-        return (self.uid, self.sender, self.text)
+        return (self.uid, self.number, self.text, self.sent)
 
 
 
@@ -91,7 +93,6 @@ def logon(account, password):
         return
     if check(): #logon successful
         pt_data.internal.var.currentAccount = account
-        fetchAll()
         mainQ.instruction(logon)
 
 def logout():
@@ -111,7 +112,7 @@ def fetchAll():
     for item in list:
         searchString += ('FROM "' + item +'" ')
     searchString = searchString.strip()+' UID '+'200'+':*'
-    print(searchString)
+    #print(searchString)
     var.status, data = var.mail.UID('search', None, searchString)
     if data == [b'']: return #IF DATA IS EMPTY, RETURN HERE
     check()
@@ -122,14 +123,12 @@ def fetchAll():
     fetch = fetch.strip(',')
     var.status, texts = var.mail.UID('fetch', fetch, '(RFC822)')
     results = []
-    file = open('mail.txt', 'w')
     for a in texts:
         ms = parseEmail(a)
         #file.write(str(a))
         if ms:
             results.append(ms)
-            print(ms.sender+' '+ms.uid)
-            file.write(str(ms.text)+'\n\n')
+            #print(ms.sender+' '+ms.uid)
             #print(re.items())
         else:
             pass
@@ -137,8 +136,8 @@ def fetchAll():
 
     pt_data.save_messages(results)
     #TODO IMPORTANT - pass messages to gui thread somehow, probably drop them in queue tagged messagelist
-    file.close()
-    print(fetch)
+    #also, probably want to log when we get new message from someone, whether their contact frame is open or not
+    #print(fetch)
 
 def parseEmail(emailTuple):
     if isinstance(emailTuple, tuple):
@@ -152,5 +151,5 @@ def parseEmail(emailTuple):
             if part.get_content_type()=='text/plain':
                 text = part.get_payload().strip()
                 break
-        return msg(text, mail['From'], uid)
+        return msg(text, mail['From'], uid, 0)
     else: return False

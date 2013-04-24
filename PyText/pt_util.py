@@ -75,6 +75,7 @@ class ContactsList:
     def __init__(self):
         self.list = []
         self.dict = {}
+        self.numDict = {}
 
     def __getitem__(self, index):
         if type(index) == int:
@@ -83,12 +84,22 @@ class ContactsList:
             return self.dict[index]
         else: raise LookupError("Contact must be accessed by name or index")
 
+    def withNumber(self, num):
+        'Returns contact with that number, or the number itself if the contact does not exist.'
+        res = self.numDict.get(num, False)
+        if res: return res
+        return num
+
     def __delitem__(self, index):
         if type(index) == int:
-            del self.dict[self.list[index].name]
+            item = self.list[index]
+            del self.dict[item.name]
+            del self.numDict[item.number]
             del self.list[index]
         elif type(index) == str:
-            self.list.remove(self[index]) #This must come first because we are using the dict to fetch the item
+            item = self[index]
+            self.list.remove(item) #This must come first because we are using the dict to fetch the item
+            del self.numDict[item.number]
             del self.dict[index]
             #search for and remove from string
 
@@ -99,10 +110,19 @@ class ContactsList:
         'Searches for the contact by name, not object reference'
         return item in self.dict.keys()
 
+    def invalidAdd(self, name, number):
+       '''Checks for duplicate names or numbers. Returns False if addition is valid, else "name" for invalid name and
+       the name of the duplicate if the number is invalid'''
+       for item in self.list:
+           if item.name == name: return 'name'
+           if item.number == number: return item.name
+       return False
+
     def fromList(self, list):
         self.list = sorted(list)
         for item in self.list:
             self.dict[item.name]=item
+            self.numDict[item.number]=item
 
     def add(self, name, number, provider, favorited):
         contact = Contact(name, number, provider, favorited)
@@ -114,6 +134,7 @@ class ContactsList:
             else: lo = mid +1
         self.list.insert(lo, contact)
         self.dict[name]=contact
+        self.numDict[number]=contact
         return lo #This must return the index it inserts at, so we know where to place items in the treeview
 
 

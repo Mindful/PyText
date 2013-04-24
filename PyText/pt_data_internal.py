@@ -67,8 +67,7 @@ def init(mainVar):
         cur = var.file.cursor()
         cur.execute("BEGIN") #this makes it all one action, and saves a decent amount of overhead
         cur.execute("CREATE TABLE accounts (account TEXT, password TEXT, contacts TEXT, UNIQUE(account))") #no duplicate accounts
-        #this must be ascending; descending primary keys just don't work apparently
-        #sorting by rowids is much faster, and there could be a LOT of messages, so the above uses a primary key
+        #we may want to force lastFetch to be saved/loaded as 0 if we have to rebuild the sql
         var.file.commit()
     if buildSettings:
         var.config['settings'] = var.settings
@@ -103,7 +102,7 @@ def save_messages(messagelist):
     name = var.currentAccount.replace("@","_").replace(".","_") #TABLENAME FORMATTING
     cur = var.file.cursor()
     cur.execute("BEGIN")
-    cur.executemany("INSERT OR IGNORE INTO "+name+" VALUES (?, ?, ?)", list)
+    cur.executemany("INSERT OR IGNORE INTO "+name+" VALUES (?, ?, ?, ?)", list)
     var.file.commit()
 
 def save_account(account, password, favorites):
@@ -111,7 +110,7 @@ def save_account(account, password, favorites):
     cur.execute("BEGIN")
     cur.execute("INSERT OR IGNORE INTO accounts VALUES (?, ?, ?)", (account, '', '[]')) #Contacts must start as empty list!
     name = account.replace("@","_").replace(".","_") #TABLENAME FORMATTING
-    cur.execute("CREATE TABLE IF NOT EXISTS "+name+" (uid INTEGER PRIMARY KEY ASC, sender TEXT, message TEXT)")
+    cur.execute("CREATE TABLE IF NOT EXISTS "+name+" (uid INTEGER PRIMARY KEY ASC, number TEXT, message TEXT, sent INTEGER)")
     if password:
         cur.execute("UPDATE accounts SET password=? WHERE account=?", (encode64_string(password,), account))
     else:
@@ -139,7 +138,7 @@ def save_contacts(account):
 
 
 def save_settings():
-    print(var.settings)
+    #print(var.settings)
     var.config['settings'] = var.settings
     print(var.config['settings'])
     var.config['fetch'] = {'last_fetch': var.lastFetch}

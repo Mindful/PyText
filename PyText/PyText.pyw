@@ -14,7 +14,7 @@ main = Tk()
 main.title("PyText")
 main.title("PyText")
 main.resizable(False, False) 
-mainFrame = ttk.Frame(main, padding="40 40 40 40") 
+mainFrame = ttk.Frame(main, padding="20 20 20 20") 
 #can always rowconfigure and columnconfigure
 #----------end Main
 
@@ -32,65 +32,55 @@ class var:
     l = None
     c = None
     i = None
+    d = None
     info = None
     contact = None
     messaging = None
     updatables = set()
 
-class infoFrame: 
-    #todo: scrollbar and max log length
-    def __init__(self):
+
+class discussionFrame:
+    def __init__(self): 
+        #be cool if we could let them type in the messaging frame, just have it show up as their pending message
+        #color it differently, but have it next to their name like - Josh: xxxx....
+        #some obvious change when it'd been sent
+
+        #also change frame name to Messaging: <contact name>
         self.frame = ttk.Frame(mainFrame)
-        self.frame.grid(column = 0, row = 0, sticky = (N,W,S))
-        self.textframe = ttk.Frame(self.frame)
+        self.frame.grid(column = 0, row = 1, sticky = (N,S,W))
         self.logout_button= ttk.Button(self.frame, text = "Logout", command = self.logout)
-        self.text = Text(self.textframe, state = 'disabled', borderwidth = '2', background = 'SteelBlue', relief = 'groove', foreground = 'WhiteSmoke', insertofftime = '0', font = ('Helvetica', '10'))
+        self.logout_button.grid(column = 1, row = 7, sticky = (W,S))
+        self.textframe = ttk.Frame(self.frame)
+        #self.text = Text(self.textframe, state = 'disabled', borderwidth = '2', background = 'White', relief = 'groove', foreground = 'Black', insertofftime = '0', font = ('Helvetica', '10'))
+        self.text = Text(self.textframe, borderwidth = '2', background = 'White', relief = 'groove', foreground = 'Black', insertofftime = '0', font = ('Helvetica', '10'))
         self.text_scrollbar = ttk.Scrollbar(self.frame, orient=VERTICAL, command=self.text.yview)
-        self.text['yscrollcommand']=self.text_scrollbar.set
+        self.text['yscrollcommand']=self.text_scrollbar.set 
         self.text_scrollbar.grid(column = 0, row = 0, rowspan = 7, sticky = (N,E,S,W))
-        #self.text.grid(column = 1, row = 1, columnspan = 2, rowspan = 6, sticky = (N,E,S,W))
         self.text.grid(column = 0, row = 0, sticky = (N,E,S,W))
         self.textframe.grid_propagate(False)
         self.textframe.grid_rowconfigure(0, weight=1)
         self.textframe.grid_columnconfigure(0, weight=1)
         self.textframe['height']=400
-        self.textframe['width']=450
-        ttk.Label(self.frame, text = "PyText Log", relief = "raised", background = "White", anchor = "center").grid(column = 1, row = 0, columnspan = 2, sticky = (N,E,S,W))
-        self.textframe.grid(column = 1, row = 1, columnspan = 2, rowspan = 6, sticky = (N,E,S,W))
-        self.logout_button.grid(column = 1, row = 8, sticky = (E,S))
+        self.textframe['width']=500
+        ttk.Label(self.frame, text = "Messaging", relief = "ridge", background = "White", anchor = "center").grid(column = 1, row = 0, columnspan = 4, sticky = (N,E,S,W))
+        self.textframe.grid(column = 1, row = 1, columnspan = 4, rowspan = 6, sticky = (N,E,S,W))
         self.text.tag_configure('emphasis', foreground = 'Black')
         self.text.bind("<Up>", lambda x: self.text.yview('scroll', '-1', 'units'))
         self.text.bind("<Down>", lambda x: self.text.yview('scroll', '1', 'units'))
+        self.text.mark_unset('insert')
         self.line = 1.0
-        self.log(" --- Welcome to PyText! --- ")
-        self.log("Latest version always found at: https://github.com/Mindfulness/PyText", 32, 69)
-        #self.text.configure(inactiveselectbackground=self.text.cget("selectbackground")) #foreground = 'WhiteSmoke'
 
-    def log(self, string, emphasis_start = 0, emphasis_end = 0):
-        self.text.yview('moveto', '1.0')
-        self.text['state']='normal'
-        self.text.insert(self.line,string+"\n")
-        start = str(self.line).strip("0")+str(emphasis_start)
-        end = str(self.line).strip("0")+str(emphasis_end)
-        if not (emphasis_start == emphasis_end == 0):
-            self.text.tag_add('emphasis', start, end)
-        self.line = self.line+1
-        #stuff
-        self.text['state']='disabled'
+    def setPerson(self, number):
+        contact = dVar.contacts.withNumber(number)
+        if contact == number:
+            pass #this is from an unfamiliar person -> ooooooo
+        else:
+            pass
 
-    def error(self, string):
-        #self.text.update_idletasks()
-        self.text['state']='normal'
-        self.text.insert(self.line,"Error: "+string+"\n")
-        self.text.tag_add('emphasis',self.line, self.line+0.6)
-        self.line = self.line+1
-        main.focus()
-        #stuff
-        self.text['state']='disabled'
-
-    def logout(self):
+    
+    def logout(self): #logout function here.
         d.save_contacts()
-        var.i.logout_button['state'] = 'disabled'
+        var.d.logout_button['state'] = 'disabled'
         var.l.logon_button['state'] = 'disabled'
         var.c.close()
         m.logout()
@@ -101,15 +91,71 @@ class infoFrame:
         var.l.active()
 
 
-class messagingFrame:
+class infoFrame: 
+    #todo: max log length
+    #also, a special function for logging "new message from X" that uses tag binding to bind opening a chat with the user you just
+    #got a message from to clicking on the text
     def __init__(self):
-        pass
+        self.frame = ttk.Frame(mainFrame)
+        self.frame.grid(column = 0, row = 0, sticky = (N,W,S,E), columnspan = 2)
+        self.textframe = ttk.Frame(self.frame)
+        self.text = Text(self.textframe, state = 'disabled', borderwidth = '2', background = 'SteelBlue', relief = 'groove', foreground = 'WhiteSmoke', insertofftime = '0', font = ('Helvetica', '10'))
+        
+        #DO NOT DELETE, this is scrollbar configuration. it might comeback
+        #self.text_scrollbar = ttk.Scrollbar(self.frame, orient=VERTICAL, command=self.text.yview)
+        #self.text['yscrollcommand']=self.text_scrollbar.set 
+        #self.text_scrollbar.grid(column = 0, row = 0, rowspan = 7, sticky = (N,E,S,W))
+
+        self.text.grid(column = 0, row = 0, sticky = (N,E,S,W))
+        self.textframe.grid_propagate(False)
+        self.textframe.grid_rowconfigure(0, weight=1)
+        self.textframe.grid_columnconfigure(0, weight=1)
+        self.textframe['height']=125
+        self.textframe['width']=714         #print(var.i.frame.winfo_width()) to get width
+        ttk.Label(self.frame, text = "PyText Log", relief = "raised", background = "White", anchor = "center").grid(column = 1, row = 0, columnspan = 2, sticky = (N,E,S,W))
+        self.textframe.grid(column = 1, row = 1, columnspan = 2, rowspan = 6, sticky = (N,E,S,W))
+        self.text.tag_configure('emphasis', foreground = 'Black')
+        self.text.bind("<Up>", lambda x: self.text.yview('scroll', '-1', 'units'))
+        self.text.bind("<Down>", lambda x: self.text.yview('scroll', '1', 'units'))
+        self.line = 1.0
+        self.log(" --- Welcome to PyText! --- ", linebreak = False)
+        self.log("Latest version always found at: https://github.com/Mindful/PyText", 32, 69)
+        #self.text.configure(inactiveselectbackground=self.text.cget("selectbackground")) #foreground = 'WhiteSmoke'
+
+    def log(self, string, emphasis_start = 0, emphasis_end = 0, linebreak = True):
+        self.text['state']='normal'
+        if linebreak:
+            self.text.insert(self.line, '\n') #this avoids our fencepost issue by appending a linebreak to the previous line, basically
+        self.text.yview('moveto', '1.0')
+        self.text.insert(self.line,string)
+        start = str(self.line).strip("0")+str(emphasis_start)
+        end = str(self.line).strip("0")+str(emphasis_end)
+        if not (emphasis_start == emphasis_end == 0):
+            self.text.tag_add('emphasis', start, end)
+        self.line = self.line+1
+        #stuff
+        self.text['state']='disabled'
+
+    def error(self, string, linebreak = True):
+        #self.text.update_idletasks()
+        self.text['state']='normal'
+        if linebreak:
+            self.text.insert(self.line, '\n')
+        self.text.yview('moveto', '1.0')
+        self.text.insert(self.line,"Error: "+string)
+        self.text.tag_add('emphasis',self.line, self.line+0.6)
+        self.line = self.line+1
+        main.focus()
+        #stuff
+        self.text['state']='disabled'
+
+
 
 
 class contactFrame:
     def __init__(self):
         self.frame = ttk.Frame(mainFrame)
-        self.frame.grid(column = 2, row = 0, sticky = (N,S,E))
+        self.frame.grid(column = 1, row = 1, sticky = (N,S,E))
         self.contactsframe = ttk.Frame(self.frame)
         self.addContact_button = ttk.Button(self.frame, text = "Add Contact", command = lambda: var.c.open(None))
         self.deleteContact_button = ttk.Button(self.frame, text = "Delete Contact", command = lambda: self.deleteContact(None))
@@ -221,6 +267,9 @@ class contactWindow:
             var.i.error('Contact names must contain only numbers and letters.')
             return
         num = self.num_string.get().strip()
+        if len(name)==10 and name.isdigit():
+            var.i.error('Contact names cannot be potential phone numbers.')
+            return
         if len(num)!=10 or not num.isdigit():
             var.i.error('Phone numbers must have 10 characters and be exclusively digits.')
             return
@@ -228,9 +277,14 @@ class contactWindow:
             var.i.error('Cannot add a contact without a phone provider.')
             return
         provider = self.provider_box.get().lower()
-        if name in dVar.contacts:
+        invalid = dVar.contacts.invalidAdd(name, num)
+        if invalid == "name":
             var.i.error('You already have '+name+' as a contact.')
             return
+        if invalid: #true and not name, must be duplicate number, so this is the name of the duplicate
+            var.i.error('Contact ' +invalid+' already has number '+num+'.')
+            return
+
         treeloc = dVar.contacts.add(name, num, provider, '0') #save the location it goes in the contact list so it goes the same place in the tree
         var.contact.contacts_pane.insert('', treeloc, text = (name,), values = (name,)) #must be item inside a tuple so it takes it as a SINGLE STRING INCLUDING SPACES
         var.i.log(name+" successfully added to contacts.",0,len(name))
@@ -263,6 +317,7 @@ class loginFrame:
             d.save_account(self.account_string.get())
         q.add(self.inactive)
         d.load_contacts(self.account_string.get())
+        m.fetch()
         var.i.log("Logged in as "+self.account_string.get()+" successfully.",13,13+len(self.account_string.get()))
 
 
@@ -332,7 +387,7 @@ def capitalizeWords(string):
 
 def mainActive():
     mainFrame.grid(column = 0, row = 0, sticky = (N, W, E, S))
-    var.i.logout_button['state'] = 'normal'
+    var.d.logout_button['state'] = 'normal'
 
 def populateContacts(null):
     'Should typically be run on account setting fetch resoluton, and only in the main thread.'
@@ -343,7 +398,7 @@ def populateContacts(null):
             var.contact.contacts_pane.insert('', 'end', text = (item,), values = (item,)) #must be item inside a tuple so it takes it as a SINGLE STRING INCLUDING SPACES
 
 def mainLogout(null):
-     var.i.logout_button['state'] = 'normal'
+     var.d.logout_button['state'] = 'normal'
      var.l.logon_button['state'] = 'normal'
 
   
@@ -370,9 +425,9 @@ def init():
     global q
     var.l = loginFrame()
     var.c = contactWindow()
-    var.i = infoFrame()
+    var.d = discussionFrame()
     var.contact = contactFrame()
-    var.messaging = messagingFrame()
+    var.i = infoFrame() #must be initialized last to get global width?
     q = pt_util.main_fq({'genericFunction': genericFunction, 'mailException': mailException, 
                          'dataException': dataException, d.internal.load_contacts: populateContacts,
                          m.internal.logon: var.l.saveLogon, m.internal.logout: mainLogout })

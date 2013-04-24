@@ -29,3 +29,7 @@ def logon(account, password):
 def logout():
     'Logs out of the current IMAP server, and moves the main screen back to the login interface.'
     internal.q.add(internal.logout)
+
+def fetch():
+    'Run a fetch and save the results'
+    internal.q.add(internal.fetchAll)
