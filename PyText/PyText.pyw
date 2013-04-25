@@ -44,7 +44,9 @@ class discussionFrame:
         #be cool if we could let them type in the messaging frame, just have it show up as their pending message
         #color it differently, but have it next to their name like - Josh: xxxx....
         #some obvious change when it'd been sent
-
+        self.person = None
+        self.number = None
+        self.provider = None
         #also change frame name to Messaging: <contact name>
         self.frame = ttk.Frame(mainFrame)
         self.frame.grid(column = 0, row = 1, sticky = (N,S,W))
@@ -62,7 +64,8 @@ class discussionFrame:
         self.textframe.grid_columnconfigure(0, weight=1)
         self.textframe['height']=400
         self.textframe['width']=500
-        ttk.Label(self.frame, text = "Messaging", relief = "ridge", background = "White", anchor = "center").grid(column = 1, row = 0, columnspan = 4, sticky = (N,E,S,W))
+        self.label = ttk.Label(self.frame, text = "Messaging", relief = "ridge", background = "White", anchor = "center")
+        self.label.grid(column = 1, row = 0, columnspan = 4, sticky = (N,E,S,W))
         self.textframe.grid(column = 1, row = 1, columnspan = 4, rowspan = 6, sticky = (N,E,S,W))
         self.text.tag_configure('sender', foreground = 'SteelBlue')
         self.text.tag_configure('self', foreground = 'Gray')
@@ -79,7 +82,6 @@ class discussionFrame:
         self.text.bind("<B1-Motion>", "break")
         self.text.bind("<Leave>", "break")
         self.text.bind("<Control-a>", "break")
-
         self.text.bind("<Control-b>", "break")
         self.text.bind("<Control-f>", "break")
         self.text.bind("<Control-p>", "break")
@@ -92,7 +94,8 @@ class discussionFrame:
         self.text.bind("<Next>", "break")
         self.text.bind("<Prior>", "break")
         self.text.bind("<Select>", "break")
-
+        self.text.bind("<Shift-Return>", self.shiftReturn)
+        self.text.bind("<Return>", self.Return)
         self.text.bind("<ButtonRelease-1>", self.buttonRelease)
         self.text.bind("<Left>", self.left)
         self.text.bind("<Right>", self.right)
@@ -100,6 +103,18 @@ class discussionFrame:
         self.text.bind("<Down>", self.down)
         #bind move cursor up, move cursor left, and backspace so that they can only move onto other text tagged 'unsent'
 
+
+    def Return(self, null):
+        return 'break' #canceled early right now, too easy to send stuff
+        #TODO: we also want to break if the stuff to send is empty. mostly, we want our textbox working properly
+        #we also want to log sent messages
+        if self.number == None or self.provider == None: return 'break'
+        m.mail(self.text.get('1.0', 'end'),self.number, self.provider)
+        return 'break'
+
+    def shiftReturn(self, null):
+        self.text.insert('insert', '\n')
+        return 'break'
 
     def buttonRelease(self, null):
         self.text.focus()
@@ -135,12 +150,20 @@ class discussionFrame:
         self.text.mark_set('insert', 'end')
         self.text['state']='disabled'
 
-    def setPerson(self, number):
-        contact = dVar.contacts.withNumber(number)
-        if contact == number:
-            pass #this is from an unfamiliar person -> ooooooo
-        else:
-            pass
+    def setPerson(self, contact):
+        contact = dVar.contacts[contact]
+        self.person = contact.name
+        self.number = contact.number
+        self.provider = contact.provider
+        self.label['text'] = 'Messaging: '+contact.name+' ('+contact.number+')'
+
+    def setPersonAddress(self, address):
+        self.person = None
+        split = address.rpartition('@')
+        self.number = split[0]
+        self.provider = 'umm' #TODO" detect provider based on address. we probably need the inverse setup of the address dictionary
+
+
 
     
     def logout(self): #logout function here.
@@ -233,7 +256,7 @@ class contactFrame:
         self.contacts_pane.bind('<Delete>', self.deleteContact)
         self.contacts_pane.bind('<Return>', var.c.open)
         self.contacts_pane.bind('<f>', self.favoriteContact)
-        #self.tree.bind("<Double-1>", self.OnDoubleClick) <---TODO
+        self.contacts_pane.bind("<Double-1>", self.onDoubleClick)
         ttk.Label(self.frame, text = "Contacts", relief = "raised", background = "White", anchor = "center").grid(column = 0, row = 0, columnspan = 2, sticky = (N,E,S,W))
         self.contacts_scrollbar.grid(column = 2, row = 0, rowspan = 7, sticky = (N,E,S,W))
         self.contacts_pane.grid(column = 0, row = 0, sticky = (N,E,S,W))
@@ -247,6 +270,9 @@ class contactFrame:
         #self.contacts_pane.grid(column = 0,row = 1, columnspan = 2, rowspan = 6, sticky = (N,E,S,W))
         self.addContact_button.grid(column = 0, row = 8, sticky = (N,W,E))
         self.deleteContact_button.grid(column = 1, row = 8, sticky = (N,W,E))
+
+    def onDoubleClick(self, null):
+        var.d.setPerson(self.contacts_pane.item(self.contacts_pane.selection())['text'])
 
     def deleteContact(self, null):
         item = self.contacts_pane.selection()

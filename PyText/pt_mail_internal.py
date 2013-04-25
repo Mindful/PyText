@@ -1,4 +1,5 @@
-import imaplib, email, pt_util, collections, time, pt_data
+import imaplib, smtplib, email, pt_util, collections, time, pt_data
+from email.mime.text import MIMEText
 
 q = pt_util.fq()
 
@@ -22,9 +23,11 @@ class var: #there are more addresses; like vzwpix.com, stuff for multimedia mess
         ('alltel', ('@message.alltel.com','@mms.alltel.net')))) #this is verizon/alltell, not pure alltell. second address may be redundant
 
     imaps = {'gmail.com':'imap.gmail.com', 'yahoo.com':'imap.mail.yahoo.com', 'aol.com':'imap.aol.com'}
+    smtps = {'gmail.com':('smtp.gmail.com', 587), 'smtp.aol.com':('smtp.aol.com', 587), 'yahoo.com':('smtp.mail.yahoo.com', 995)}
 
     status = ''
-    mail = None
+    imap = None
+    smtp = None
 
 class msg:
     def __init__(self, text, address, uid, sent):
@@ -58,6 +61,10 @@ def init():
     while running:
         if len(q) > 0:
             q.run()
+    if var.smtp != None:
+        var.smtp.quit()
+    if var.imap != None:
+        var.imap.logout()
 
 def terminate():
     global running
@@ -79,16 +86,28 @@ def logon(account, password):
         mainQ.mailException('Must enter a password')
         return
     at = account.rpartition('@')[2]
-    if at in var.imaps:
-        host = var.imaps[at]
-    else:
-        mainQ.mailException('Unable to determine host')
+    imapHost = var.imaps.get(at, False)
+    smtpHost = var.smtps.get(at, False)
+    if not imapHost:
+        mainQ.mailException('Unable to determine IMAP host')
+        return
+    if not smtpHost:
+        mainQ.mailException('Unable to determine SMTP host')
+        return
+    #we need smtp connection AND imap connection. good times
+    try:
+        var.smtp = smtplib.SMTP(smtpHost[0], smtpHost[1])
+        var.smtp.ehlo()
+        var.smtp.starttls()
+        var.smtp.login(account, password)
+    except smtplib.SMTPException as e:
+        mainQ.mailException(str(e))
         return
     try:
-        var.mail = imaplib.IMAP4_SSL(host)
-        var.mail.login(account, password)
-        var.status, msgs = var.mail.select('INBOX')
-    except Exception as e:
+        var.imap = imaplib.IMAP4_SSL(imapHost)
+        var.imap.login(account, password)
+        var.status, msgs = var.imap.select('INBOX')
+    except imaplib.IMAP4.error as e:
         mainQ.mailException(str(e))
         return
     if check(): #logon successful
@@ -96,13 +115,19 @@ def logon(account, password):
         mainQ.instruction(logon)
 
 def logout():
-    var.mail.close()
-    var.mail.logout()
+    var.imap.close()
+    var.imap.logout()
     mainQ.instruction(logout)
     #if var.status != 'BYE':
     #   mainQ.mailException(var.status)
 
 
+def mail(text, number, provider):
+    to = number+var.addresses[provider][0]
+    From = pt_data.internal.var.currentAccount
+    message = MIMEText(text)
+    message['From'], message['To'], message['subject'] = From, to, ''
+    var.smtp.send_message(message)
 
 
 def fetchAll():
@@ -113,7 +138,7 @@ def fetchAll():
         searchString += ('FROM "' + item +'" ')
     searchString = searchString.strip()+' UID '+'200'+':*'
     #print(searchString)
-    var.status, data = var.mail.UID('search', None, searchString)
+    var.status, data = var.imap.UID('search', None, searchString)
     if data == [b'']: return #IF DATA IS EMPTY, RETURN HERE
     check()
     fetch = ''
@@ -121,7 +146,7 @@ def fetchAll():
     for d in list:
         fetch+= d+','
     fetch = fetch.strip(',')
-    var.status, texts = var.mail.UID('fetch', fetch, '(RFC822)')
+    var.status, texts = var.imap.UID('fetch', fetch, '(RFC822)')
     results = []
     for a in texts:
         ms = parseEmail(a)
