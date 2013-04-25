@@ -52,7 +52,7 @@ class discussionFrame:
         self.logout_button.grid(column = 1, row = 7, sticky = (W,S))
         self.textframe = ttk.Frame(self.frame)
         #self.text = Text(self.textframe, state = 'disabled', borderwidth = '2', background = 'White', relief = 'groove', foreground = 'Black', insertofftime = '0', font = ('Helvetica', '10'))
-        self.text = Text(self.textframe, borderwidth = '2', background = 'White', relief = 'groove', foreground = 'Black', insertofftime = '0', font = ('Helvetica', '10'))
+        self.text = Text(self.textframe, borderwidth = '2', background = 'White', relief = 'groove', foreground = 'Black', insertofftime = '0', wrap = "word", font = ('Helvetica', '10'))
         self.text_scrollbar = ttk.Scrollbar(self.frame, orient=VERTICAL, command=self.text.yview)
         self.text['yscrollcommand']=self.text_scrollbar.set 
         self.text_scrollbar.grid(column = 0, row = 0, rowspan = 7, sticky = (N,E,S,W))
@@ -64,11 +64,76 @@ class discussionFrame:
         self.textframe['width']=500
         ttk.Label(self.frame, text = "Messaging", relief = "ridge", background = "White", anchor = "center").grid(column = 1, row = 0, columnspan = 4, sticky = (N,E,S,W))
         self.textframe.grid(column = 1, row = 1, columnspan = 4, rowspan = 6, sticky = (N,E,S,W))
-        self.text.tag_configure('emphasis', foreground = 'Black')
+        self.text.tag_configure('sender', foreground = 'SteelBlue')
+        self.text.tag_configure('self', foreground = 'Gray')
+        self.text.tag_configure('unsent', foreground = 'LimeGreen')
         self.text.bind("<Up>", lambda x: self.text.yview('scroll', '-1', 'units'))
         self.text.bind("<Down>", lambda x: self.text.yview('scroll', '1', 'units'))
-        self.text.mark_unset('insert')
+        self.textBinding()
         self.line = 1.0
+
+    def textBinding(self):
+        self.text.bind("<Button-1>", "break") #this overwrites/disables bindings, but we do apparently have to use "break"
+        self.text.bind("<Double-Button-1>", "break")
+        self.text.bind("<Triple-Button-1>", "break")
+        self.text.bind("<B1-Motion>", "break")
+        self.text.bind("<Leave>", "break")
+        self.text.bind("<Control-a>", "break")
+
+        self.text.bind("<Control-b>", "break")
+        self.text.bind("<Control-f>", "break")
+        self.text.bind("<Control-p>", "break")
+        self.text.bind("<Control-n>", "break")
+        self.text.bind("<Control-h>", "break")
+        self.text.bind("<Control-d>", "break")
+        self.text.bind("<Control-space>", "break")
+        self.text.bind("<Home>", "break")
+        self.text.bind("<End>", "break")
+        self.text.bind("<Next>", "break")
+        self.text.bind("<Prior>", "break")
+        self.text.bind("<Select>", "break")
+
+        self.text.bind("<ButtonRelease-1>", self.buttonRelease)
+        self.text.bind("<Left>", self.left)
+        self.text.bind("<Right>", self.right)
+        self.text.bind("<Up>", self.up)
+        self.text.bind("<Down>", self.down)
+        #bind move cursor up, move cursor left, and backspace so that they can only move onto other text tagged 'unsent'
+
+
+    def buttonRelease(self, null):
+        self.text.focus()
+        return 'break' #interrupts tk's response chain
+
+    def left(self, null):
+        #CONDITIONALLY - CHECK FOR OUR LIMIT
+        self.text.mark_set('insert', self.text.index('insert')+'- 1 chars')
+        return 'break'
+
+    def right (self, null):
+        self.text.mark_set('insert', self.text.index('insert')+'+ 1 chars')
+        return 'break'
+
+    def up(self, null):
+        #CONDITIONALLY - CHECK FOR OUR LIMIT
+        self.text.mark_set('insert', self.text.index('insert')+'- 1 lines')
+        return 'break'
+
+    def down(self, null):
+        self.text.mark_set('insert', self.text.index('insert')+'+ 1 lines')
+        return 'break'
+
+    def backspace(self, null):
+        return 'break'
+
+
+    
+    #self.text.bind("<Key>", lambda x: self.write(x.char)) #event has char attribute, containing char of pressed key
+    def write(self, text): #TODO: delete this if not using
+        self.text['state']='normal'
+        self.text.insert('end',text)
+        self.text.mark_set('insert', 'end')
+        self.text['state']='disabled'
 
     def setPerson(self, number):
         contact = dVar.contacts.withNumber(number)
