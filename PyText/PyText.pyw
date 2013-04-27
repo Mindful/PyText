@@ -64,7 +64,7 @@ class discussionFrame:
         self.textframe.grid_columnconfigure(0, weight=1)
         self.textframe['height']=400
         self.textframe['width']=500
-        self.label = ttk.Label(self.frame, text = "Messaging", relief = "ridge", background = "White", anchor = "center")
+        self.label = ttk.Label(self.frame, text = "Messaging", relief = "raised", background = "White", anchor = "center")
         self.label.grid(column = 1, row = 0, columnspan = 4, sticky = (N,E,S,W))
         self.textframe.grid(column = 1, row = 1, columnspan = 4, rowspan = 6, sticky = (N,E,S,W))
         self.text.tag_configure('sender', foreground = 'SteelBlue')
@@ -190,18 +190,22 @@ class infoFrame:
         self.text = Text(self.textframe, state = 'disabled', borderwidth = '2', background = 'SteelBlue', relief = 'groove', foreground = 'WhiteSmoke', insertofftime = '0', font = ('Helvetica', '10'))
         
         #DO NOT DELETE, this is scrollbar configuration. it might comeback
-        #self.text_scrollbar = ttk.Scrollbar(self.frame, orient=VERTICAL, command=self.text.yview)
+        self.text_scrollbar = ttk.Scrollbar(self.frame, orient=VERTICAL, command=self.text.yview)
         #self.text['yscrollcommand']=self.text_scrollbar.set 
-        #self.text_scrollbar.grid(column = 0, row = 0, rowspan = 7, sticky = (N,E,S,W))
+        self.text['yscrollcommand']=self.multiscroll
+        self.text_scrollbar.grid(column = 0, row = 1, rowspan = 6, sticky = (N,S))
+        self.text_scrollbartwo = ttk.Scrollbar(self.frame, orient=VERTICAL, command=self.text.yview)
+        self.text_scrollbartwo.grid(column = 2, row = 1, rowspan = 6, sticky = (N,S))
+
 
         self.text.grid(column = 0, row = 0, sticky = (N,E,S,W))
         self.textframe.grid_propagate(False)
         self.textframe.grid_rowconfigure(0, weight=1)
         self.textframe.grid_columnconfigure(0, weight=1)
         self.textframe['height']=125
-        self.textframe['width']=714         #print(var.i.frame.winfo_width()) to get width
-        ttk.Label(self.frame, text = "PyText Log", relief = "raised", background = "White", anchor = "center").grid(column = 1, row = 0, columnspan = 2, sticky = (N,E,S,W))
-        self.textframe.grid(column = 1, row = 1, columnspan = 2, rowspan = 6, sticky = (N,E,S,W))
+        self.textframe['width']=680       #print(var.i.frame.winfo_width()) - scrollbars.winfo_w to get width
+        ttk.Label(self.frame, text = "PyText", relief = "raised", background = "White", anchor = "center").grid(column = 0, row = 0, columnspan = 3, sticky = (N,E,S,W))
+        self.textframe.grid(column = 1, row = 1, rowspan = 6, sticky = (N,E,S,W))
         self.text.tag_configure('emphasis', foreground = 'Black')
         self.text.bind("<Up>", lambda x: self.text.yview('scroll', '-1', 'units'))
         self.text.bind("<Down>", lambda x: self.text.yview('scroll', '1', 'units'))
@@ -209,6 +213,10 @@ class infoFrame:
         self.log(" --- Welcome to PyText! --- ", linebreak = False)
         self.log("Latest version always found at: https://github.com/Mindful/PyText", 32, 69)
         #self.text.configure(inactiveselectbackground=self.text.cget("selectbackground")) #foreground = 'WhiteSmoke'
+
+    def multiscroll(self, first, last):
+        self.text_scrollbar.set(first, last)
+        self.text_scrollbartwo.set(first, last)
 
     def log(self, string, emphasis_start = 0, emphasis_end = 0, linebreak = True):
         self.text['state']='normal'

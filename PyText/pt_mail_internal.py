@@ -123,6 +123,8 @@ def logout():
 
 
 def mail(text, number, provider):
+    #TODO: this needs to handle breaking messages up into multiple numbered texts if necessary
+    #remember the counting algorithm has to be dynamic to include possible counts of numbering characters too
     to = number+var.addresses[provider][0]
     From = pt_data.internal.var.currentAccount
     message = MIMEText(text)
