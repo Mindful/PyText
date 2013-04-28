@@ -138,8 +138,8 @@ def fetchAll():
     searchString = 'or '*(len(list)-1)
     for item in list:
         searchString += ('FROM "' + item +'" ')
-    searchString = searchString.strip()+' UID '+'200'+':*'
-    #print(searchString)
+    searchString = searchString.strip()+' UID '+str(pt_data.internal.var.lastFetch+1)+':*' 
+    #IMPORTANT: IMAP ranges are inclusive, so it's at least one greater than the lastFetch's UID
     var.status, data = var.imap.UID('search', None, searchString)
     if data == [b'']: return #IF DATA IS EMPTY, RETURN HERE
     check()
@@ -162,6 +162,7 @@ def fetchAll():
             #parse the possible values of other parts of the list; seen so far is b')' and b' FLAGS (\\Seen))'
 
     pt_data.save_messages(results)
+    mainQ.append((fetchAll, results))
     #TODO IMPORTANT - pass messages to gui thread somehow, probably drop them in queue tagged messagelist
     #also, probably want to log when we get new message from someone, whether their contact frame is open or not
     #print(fetch)

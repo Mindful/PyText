@@ -77,7 +77,7 @@ def init(mainVar):
         #I think it autocloses after this
         
     load()
-    l = mainVar.l
+    l = mainVar.loginFrame
     l.account_string.set(var.settings['default_account'])
     l.password_string.set(var.accounts.get(var.settings['default_account'],''))
     if l.account_string.get() != '' and l.password_string.get() != '':
@@ -90,7 +90,16 @@ def terminate():
     global running
     running = False
     
-
+def load_messages(number):
+    list = []
+    cur = var.file.cursor()
+    cur.arraysize = 50 #no more than 50 most recent messages
+    name = var.currentAccount.replace("@","_").replace(".","_") #TABLENAME FORMATTING
+    cur.execute("SELECT * FROM "+name+" WHERE number=? ORDER BY uid", (number,))
+    fetch = cur.fetchmany()
+    for item in fetch:
+        list.append((item['sent'], item['number'], item['message']))
+    mainQ.append((load_messages,(number, list)))
 
 def save_messages(messagelist):
     list = []
@@ -124,12 +133,13 @@ def load_contacts(account):
     var.currentAccount = account
     cur = var.file.cursor()
     cur.execute("SELECT * FROM accounts WHERE account=?", (account,)) #must be a tuple, even if there is only one value
-    a = cur.fetchone() #this is returning a tuple instead of a dictionary
+    a = cur.fetchone()
     var.contacts.fromList(json.loads(a[2], object_hook=json_contact)) #note this overrides defaults, makes testing hard
+    for c in var.contacts.list: #auto load messages for all favorited contacts
+        if c.favorited == '1':
+            load_messages(c.number)
     mainQ.instruction(load_contacts)
-    #list = cur.fetchmany() #THIS RETURNS A LIST OF SQLITE OBJECTS, WHICH ARE DICTS
-    #print(list)
-    #print(list[0]['account']) 
+    
 
 def save_contacts(account):
     cur = var.file.cursor()

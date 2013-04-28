@@ -3,8 +3,18 @@ from tkinter import ttk
 from tkinter import messagebox
 import pt_mail as m, pt_data as d, pt_util, queue, pt_data_internal, pt_mail_internal
 
-#logout button can be double clicked, which is bad. need a generalized solution to disable buttons on use (like login)
-#so that they can't be double clicked
+#need to work on messaging; possibly a custom data structure (ala contactslist) that will store lists(list) of sent/received
+#messages by number (in a dictionary) in order, generate a list if there isn't one for a number, etc.
+
+#ALSO SQL MUST STORE SENT/RECEIVED AS 1/0
+
+#new messages update should be a lsit: "New messages from: x, y, z..." not one per line
+
+
+
+
+
+
 
 dVar = pt_data_internal.var
 mVar = pt_mail_internal.var
@@ -29,17 +39,97 @@ dataExceptionQ = queue.deque()
 
 
 class var:
-    l = None
-    c = None
-    i = None
-    d = None
-    info = None
-    contact = None
-    messaging = None
+    loginFrame = None
+    contactWindow = None
+    infoFrame = None
+    discussionFrame = None
+    contactFrame = None
+    messages = None
     updatables = set()
 
 
+
+class messages:
+
+    #this list may need to be updated when a contact is added (or potentially removed) to reflect names
+    #exact naming should be determined when we load; that's when we check for an appropriate contact entry
+
+    #this also needs SQL loading, which is going to have to be done with thread communication
+        def __init__(self):
+            self.dict = {}
+
+
+       # def __getitem__(self, index):
+        #    return self.dict.get(index, [])
+        
+
+        def add(self, sent, number, text):
+            list = self.dict.get(number, False)
+            msg = (sent, number, text)
+            if list:
+                list.append(msg)
+                if var.discussionFrame.number == number:
+                    var.discussionFrame.writeMsg(msg)
+            else: raise Exception("attempting to add messages for an unloaded address:"+number)
+
+
+
+        def select(self, number):
+            list = self.dict.get(number, False)
+            if list:
+                self.write(list)
+            else:
+                d.load_messages(number)
+
+
+        def write(self, list):
+            for item in list:
+                var.discussionFrame.writeMsg(item)
+
+        def received(self, msglist):
+            for m in msglist:
+                print(m)
+                if self.dict.get(m.number, False):
+                    self.add(False, m.number, m.text)
+
+        def loaded(self, msgtuple):
+            #(number, messagelist)
+            if not self.dict.get(msgtuple[0], False): raise Exception("loading onto existing address:"+number)
+            self.dict[msgtuple[0]] = msgtuple[1]
+            if var.discussionFrame.number == msgtuple[0]:
+                self.write(msgtuple[0]) #this means we were waiting on this load to populate the current discussion frame
+
+        def sent(self, number, text):
+            add(True, number, text)
+
+        def clear(self):
+            self.dict = {}
+
+
+
 class discussionFrame:
+
+    def writeMsg(self, msg):
+        if msg[1] != self.number: raise Exception("irrelevant write")
+        #def log(self, string, emphasis_start = 0, emphasis_end = 0, linebreak = True):
+        self.text['state']='normal'
+        self.text.insert(self.line, '\n') #this avoids our fencepost issue by appending a linebreak to the previous line, basically
+        self.text.yview('moveto', '1.0')
+        if msg[0]:
+            self.text.insert(self.line,"You: "+msg[2])
+            end = str(self.line).strip("0")+'5'
+            self.text.tag_add('self', self.line, end)
+        else:
+            name = str(dVar.contacts.withNumber(msg[1])) #can return a Contact if it exists, else a string
+            self.text.insert(self.line,name+": "+msg[2])
+            end = str(self.line).strip("0")+str(len(name)+2)
+            self.text.tag_add('person', self.line, end)
+        self.line = self.line+1
+        #stuff
+        self.text['state']='disabled'
+
+        #msg is tuple (False, number, text) for received, or (True, number, text) for sent
+
     def __init__(self): 
         #be cool if we could let them type in the messaging frame, just have it show up as their pending message
         #color it differently, but have it next to their name like - Josh: xxxx....
@@ -67,13 +157,23 @@ class discussionFrame:
         self.label = ttk.Label(self.frame, text = "Messaging", relief = "raised", background = "White", anchor = "center")
         self.label.grid(column = 1, row = 0, columnspan = 4, sticky = (N,E,S,W))
         self.textframe.grid(column = 1, row = 1, columnspan = 4, rowspan = 6, sticky = (N,E,S,W))
-        self.text.tag_configure('sender', foreground = 'SteelBlue')
+        self.text.tag_configure('person', foreground = 'SteelBlue')
         self.text.tag_configure('self', foreground = 'Gray')
         self.text.tag_configure('unsent', foreground = 'LimeGreen')
         self.text.bind("<Up>", lambda x: self.text.yview('scroll', '-1', 'units'))
         self.text.bind("<Down>", lambda x: self.text.yview('scroll', '1', 'units'))
         self.textBinding()
         self.line = 1.0
+
+    def clear(self): #written twice on first set. why?
+        self.person = None
+        self.number = None
+        self.provider = None
+        self.label['text'] = 'Messaging'
+        self.text['state']='normal'
+        self.text.delete('0.0', 'end')
+        self.line = 1.0
+        self.text['state']='disabled'
 
     def textBinding(self):
         self.text.bind("<Button-1>", "break") #this overwrites/disables bindings, but we do apparently have to use "break"
@@ -144,11 +244,7 @@ class discussionFrame:
 
     
     #self.text.bind("<Key>", lambda x: self.write(x.char)) #event has char attribute, containing char of pressed key
-    def write(self, text): #TODO: delete this if not using
-        self.text['state']='normal'
-        self.text.insert('end',text)
-        self.text.mark_set('insert', 'end')
-        self.text['state']='disabled'
+
 
     def setPerson(self, contact):
         contact = dVar.contacts[contact]
@@ -156,7 +252,12 @@ class discussionFrame:
         self.number = contact.number
         self.provider = contact.provider
         self.label['text'] = 'Messaging: '+contact.name+' ('+contact.number+')'
+        #d.load_messages(self.number)
+        var.messages.select(self.number)
+        #for item in 
 
+
+    #function for later, for receiving msgs from unknown numbers
     def setPersonAddress(self, address):
         self.person = None
         split = address.rpartition('@')
@@ -168,15 +269,17 @@ class discussionFrame:
     
     def logout(self): #logout function here.
         d.save_contacts()
-        var.d.logout_button['state'] = 'disabled'
-        var.l.logon_button['state'] = 'disabled'
-        var.c.close()
+        var.discussionFrame.logout_button['state'] = 'disabled'
+        var.loginFrame.logon_button['state'] = 'disabled'
+        var.contactWindow.close()
+        var.discussionFrame.clear()
+        var.messages.clear()
         m.logout()
         mainFrame.grid_forget()
-        oldContacts = var.contact.contacts_pane.get_children()
+        oldContacts = var.contactFrame.contacts_pane.get_children()
         for c in oldContacts:
-            var.contact.contacts_pane.delete(c)
-        var.l.active()
+            var.contactFrame.contacts_pane.delete(c)
+        var.loginFrame.active()
 
 
 class infoFrame: 
@@ -253,7 +356,7 @@ class contactFrame:
         self.frame = ttk.Frame(mainFrame)
         self.frame.grid(column = 1, row = 1, sticky = (N,S,E))
         self.contactsframe = ttk.Frame(self.frame)
-        self.addContact_button = ttk.Button(self.frame, text = "Add Contact", command = lambda: var.c.open(None))
+        self.addContact_button = ttk.Button(self.frame, text = "Add Contact", command = lambda: var.contactWindow.open(None))
         self.deleteContact_button = ttk.Button(self.frame, text = "Delete Contact", command = lambda: self.deleteContact(None))
         self.contacts_pane = ttk.Treeview(self.contactsframe, show = '', columns = 'Contacts') 
         self.contacts_scrollbar = ttk.Scrollbar(self.frame, orient=VERTICAL, command=self.contacts_pane.yview)
@@ -262,7 +365,7 @@ class contactFrame:
         self.contacts_pane['selectmode'] = 'browse' #select only one at a time
         self.contacts_pane.tag_configure('favorite', background = 'SteelBlue', foreground = 'WhiteSmoke')
         self.contacts_pane.bind('<Delete>', self.deleteContact)
-        self.contacts_pane.bind('<Return>', var.c.open)
+        self.contacts_pane.bind('<Return>', var.contactWindow.open)
         self.contacts_pane.bind('<f>', self.favoriteContact)
         self.contacts_pane.bind("<Double-1>", self.onDoubleClick)
         ttk.Label(self.frame, text = "Contacts", relief = "raised", background = "White", anchor = "center").grid(column = 0, row = 0, columnspan = 2, sticky = (N,E,S,W))
@@ -280,7 +383,7 @@ class contactFrame:
         self.deleteContact_button.grid(column = 1, row = 8, sticky = (N,W,E))
 
     def onDoubleClick(self, null):
-        var.d.setPerson(self.contacts_pane.item(self.contacts_pane.selection())['text'])
+        var.discussionFrame.setPerson(self.contacts_pane.item(self.contacts_pane.selection())['text'])
 
     def deleteContact(self, null):
         item = self.contacts_pane.selection()
@@ -292,7 +395,7 @@ class contactFrame:
                 q.add(lambda: self.contacts_pane.delete(item))
                 #self.contacts_pane.delete(item)
                 del dVar.contacts[name]
-                var.i.log(name+" removed from contacts.",0,len(name))
+                var.infoFrame.log(name+" removed from contacts.",0,len(name))
 
 
 
@@ -305,12 +408,12 @@ class contactFrame:
             treeloc = dVar.contacts.add(contact.name, contact.number, contact.provider, '1') #remove, change, readd
             self.contacts_pane.item(item, tags = ('favorite',))
             self.contacts_pane.move(item, '', treeloc)
-            var.i.log(name+" marked as a favorite.",0,len(name))
+            var.infoFrame.log(name+" marked as a favorite.",0,len(name))
         else:
             treeloc = dVar.contacts.add(contact.name, contact.number, contact.provider, '0') #remove, change, readd
             self.contacts_pane.item(item, tags = ())
             self.contacts_pane.move(item, '', treeloc)
-            var.i.log(name+" is no longer a favorite.",0,len(name))
+            var.infoFrame.log(name+" is no longer a favorite.",0,len(name))
 
 class contactWindow:
     def __init__(self):
@@ -358,35 +461,35 @@ class contactWindow:
     def addContact(self, *args):
         name = capitalizeWords(self.name_string.get())
         if len(name) == 0:
-            var.i.error('Cannot add a contact without a name.')
+            var.infoFrame.error('Cannot add a contact without a name.')
             return
         for word in name.split():
             nameValid = word.isalnum() 
         if not nameValid:
-            var.i.error('Contact names must contain only numbers and letters.')
+            var.infoFrame.error('Contact names must contain only numbers and letters.')
             return
         num = self.num_string.get().strip()
         if len(name)==10 and name.isdigit():
-            var.i.error('Contact names cannot be potential phone numbers.')
+            var.infoFrame.error('Contact names cannot be potential phone numbers.')
             return
         if len(num)!=10 or not num.isdigit():
-            var.i.error('Phone numbers must have 10 characters and be exclusively digits.')
+            var.infoFrame.error('Phone numbers must have 10 characters and be exclusively digits.')
             return
         if self.provider_box.current() == -1:
-            var.i.error('Cannot add a contact without a phone provider.')
+            var.infoFrame.error('Cannot add a contact without a phone provider.')
             return
         provider = self.provider_box.get().lower()
         invalid = dVar.contacts.invalidAdd(name, num)
         if invalid == "name":
-            var.i.error('You already have '+name+' as a contact.')
+            var.infoFrame.error('You already have '+name+' as a contact.')
             return
         if invalid: #true and not name, must be duplicate number, so this is the name of the duplicate
-            var.i.error('Contact ' +invalid+' already has number '+num+'.')
+            var.infoFrame.error('Contact ' +invalid+' already has number '+num+'.')
             return
 
         treeloc = dVar.contacts.add(name, num, provider, '0') #save the location it goes in the contact list so it goes the same place in the tree
-        var.contact.contacts_pane.insert('', treeloc, text = (name,), values = (name,)) #must be item inside a tuple so it takes it as a SINGLE STRING INCLUDING SPACES
-        var.i.log(name+" successfully added to contacts.",0,len(name))
+        var.contactFrame.contacts_pane.insert('', treeloc, text = (name,), values = (name,)) #must be item inside a tuple so it takes it as a SINGLE STRING INCLUDING SPACES
+        var.infoFrame.log(name+" successfully added to contacts.",0,len(name))
         self.name_string.set("")
         self.num_string.set("")
         self.provider_box.set("")
@@ -417,7 +520,7 @@ class loginFrame:
         q.add(self.inactive)
         d.load_contacts(self.account_string.get())
         m.fetch()
-        var.i.log("Logged in as "+self.account_string.get()+" successfully.",13,13+len(self.account_string.get()))
+        var.infoFrame.log("Logged in as "+self.account_string.get()+" successfully.",13,13+len(self.account_string.get()))
 
 
     def login(self, *args):
@@ -486,19 +589,19 @@ def capitalizeWords(string):
 
 def mainActive():
     mainFrame.grid(column = 0, row = 0, sticky = (N, W, E, S))
-    var.d.logout_button['state'] = 'normal'
+    var.discussionFrame.logout_button['state'] = 'normal'
 
 def populateContacts(null):
     'Should typically be run on account setting fetch resoluton, and only in the main thread.'
     for item in dVar.contacts: #No custom definition for this, but default iteration seems to work with __getitem__ defined
         if item.favorited == '1': #we know it's favorited
-            var.contact.contacts_pane.insert('', 0, text = (item,), values = (item,), tags = ('favorite',))
+            var.contactFrame.contacts_pane.insert('', 0, text = (item,), values = (item,), tags = ('favorite',))
         else:
-            var.contact.contacts_pane.insert('', 'end', text = (item,), values = (item,)) #must be item inside a tuple so it takes it as a SINGLE STRING INCLUDING SPACES
+            var.contactFrame.contacts_pane.insert('', 'end', text = (item,), values = (item,)) #must be item inside a tuple so it takes it as a SINGLE STRING INCLUDING SPACES
 
 def mainLogout(null):
-     var.d.logout_button['state'] = 'normal'
-     var.l.logon_button['state'] = 'normal'
+     var.discussionFrame.logout_button['state'] = 'normal'
+     var.loginFrame.logon_button['state'] = 'normal'
 
   
 def genericFunction(func):
@@ -510,11 +613,19 @@ def mailException(ex):
 def dataException(ex):
     dataExceptionQ.append(ex)
 
+def loadedMessages(messagetuple):
+    #(number, messagelist)
+    var.messages.dict[messagetuple[0]] = messagetuple[1]
+    if var.discussionFrame.number == messagetuple[0]:
+        pass #this means we need to do more things, because we've just loaded for the current discussion target
+
+
+
 def quit(): #can add a confirmation window in here to check with users if they REALLY want to quit
     if dVar.settings['confirmation_windows']=='0' or messagebox.askyesno("Quit?", "Close PyText?"):
         global running
         running = False
-        var.c.main.destroy()
+        var.contactWindow.main.destroy()
         main.destroy()
 
 def minimize(*args):
@@ -522,14 +633,15 @@ def minimize(*args):
 
 def init():
     global q
-    var.l = loginFrame()
-    var.c = contactWindow()
-    var.d = discussionFrame()
-    var.contact = contactFrame()
-    var.i = infoFrame() #must be initialized last to get global width?
+    var.loginFrame = loginFrame()
+    var.contactWindow = contactWindow()
+    var.messages = messages()
+    var.discussionFrame = discussionFrame()
+    var.contactFrame = contactFrame()
+    var.infoFrame = infoFrame() #must be initialized last to get global width?
     q = pt_util.main_fq({'genericFunction': genericFunction, 'mailException': mailException, 
-                         'dataException': dataException, d.internal.load_contacts: populateContacts,
-                         m.internal.logon: var.l.saveLogon, m.internal.logout: mainLogout })
+                         'dataException': dataException, d.internal.load_contacts: populateContacts, d.internal.load_messages: loadedMessages,
+                         m.internal.logon: var.loginFrame.saveLogon, m.internal.logout: mainLogout, m.internal.fetchAll: var.messages.received })
     d.init(q, var)
     m.init(q)
     main.protocol("WM_DELETE_WINDOW", quit)
