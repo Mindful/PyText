@@ -3,10 +3,8 @@ from tkinter import ttk
 from tkinter import messagebox
 import pt_mail as m, pt_data as d, pt_util, queue, pt_data_internal, pt_mail_internal
 
-#need to work on messaging; possibly a custom data structure (ala contactslist) that will store lists(list) of sent/received
-#messages by number (in a dictionary) in order, generate a list if there isn't one for a number, etc.
-
-#ALSO SQL MUST STORE SENT/RECEIVED AS 1/0
+#MAIN TODO: STORE DATE (RECEIVED DATE CHECKED AGAINST THE ACTUAL IMAP DATE, AND SENT DATE)
+#SORT MESSAGES BY DATE TO DISPLAY THEM
 
 #new messages update should be a lsit: "New messages from: x, y, z..." not one per line
 
@@ -506,7 +504,7 @@ class loginFrame:
         else:
             self.logon_button['state'] = 'disabled'
 
-    def saveLogon(self, null): #settings are saved on shutdown or manually; don't need to save default_account here
+    def saveLogon(self, ttls): #settings are saved on shutdown or manually; don't need to save default_account here
         saveAccount =  dVar.settings['default_account'].lower() != self.account_string.get().lower() and dVar.settings['save_account'] == '1'
         savePassword = dVar.settings.get(self.account_string.get(), '') != self.password_string.get() and dVar.settings['save_password'] == '1'
         if saveAccount:
@@ -521,6 +519,8 @@ class loginFrame:
         d.load_contacts(self.account_string.get())
         m.fetch()
         var.infoFrame.log("Logged in as "+self.account_string.get()+" successfully.",13,13+len(self.account_string.get()))
+        if not ttls:
+            var.infoFrame.log("Could not start TTLS (STARTTLS); the server may not support it. Using unencrypted connection.")
 
 
     def login(self, *args):

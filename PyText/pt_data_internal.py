@@ -150,7 +150,6 @@ def save_contacts(account):
 def save_settings():
     #print(var.settings)
     var.config['settings'] = var.settings
-    print(var.config['settings'])
     var.config['fetch'] = {'last_fetch': var.lastFetch}
     with open(var.settingsName, 'w') as configfile:
         var.config.write(configfile)

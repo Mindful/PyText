@@ -23,7 +23,7 @@ class var: #there are more addresses; like vzwpix.com, stuff for multimedia mess
         ('alltel', ('@message.alltel.com','@mms.alltel.net')))) #this is verizon/alltell, not pure alltell. second address may be redundant
 
     imaps = {'gmail.com':'imap.gmail.com', 'yahoo.com':'imap.mail.yahoo.com', 'aol.com':'imap.aol.com'}
-    smtps = {'gmail.com':('smtp.gmail.com', 587), 'smtp.aol.com':('smtp.aol.com', 587), 'yahoo.com':('smtp.mail.yahoo.com', 995)}
+    smtps = {'gmail.com':('smtp.gmail.com', 587), 'smtp.aol.com':('smtp.aol.com', 587), 'yahoo.com':('smtp.mail.yahoo.com', 587)}
 
     status = ''
     imap = None
@@ -95,28 +95,38 @@ def logon(account, password):
         mainQ.mailException('Unable to determine SMTP host')
         return
     #we need smtp connection AND imap connection. good times
+    ttls = True
     try:
         var.smtp = smtplib.SMTP(smtpHost[0], smtpHost[1])
+        try:
+            var.smtp.starttls()
+        except Exception:
+            ttls = False
         var.smtp.ehlo()
-        var.smtp.starttls()
         var.smtp.login(account, password)
-    except smtplib.SMTPException as e:
+    #except smtplib.SMTPException as e:
+    except Exception as e:
         mainQ.mailException(str(e))
         return
     try:
         var.imap = imaplib.IMAP4_SSL(imapHost)
         var.imap.login(account, password)
         var.status, msgs = var.imap.select('INBOX')
-    except imaplib.IMAP4.error as e:
+    #except imaplib.IMAP4.error as e:
+    except Exception as e:
         mainQ.mailException(str(e))
         return
     if check(): #logon successful
         pt_data.internal.var.currentAccount = account
-        mainQ.instruction(logon)
+        #mainQ.instruction(logon)
+        mainQ.append((logon, ttls))
 
 def logout():
     var.imap.close()
     var.imap.logout()
+    var.smtp.quit()
+    var.imap = None
+    var.smtp = None
     mainQ.instruction(logout)
     #if var.status != 'BYE':
     #   mainQ.mailException(var.status)
@@ -175,6 +185,7 @@ def parseEmail(emailTuple):
             if metadata[x].find('UID')!=-1:
                 uid = metadata[x+1]
         mail = email.message_from_bytes(emailTuple[1])
+        print(mail['Date'])
         for part in mail.walk():
             if part.get_content_type()=='text/plain':
                 text = part.get_payload().strip()
