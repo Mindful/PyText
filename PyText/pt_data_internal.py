@@ -65,7 +65,6 @@ def init(mainVar):
     if build:
         var.file = sqlite3.connect(var.fileName)
         cur = var.file.cursor()
-        cur.execute("BEGIN") #this makes it all one action, and saves a decent amount of overhead
         cur.execute("CREATE TABLE accounts (account TEXT, password TEXT, contacts TEXT, UNIQUE(account))") #no duplicate accounts
         #we may want to force lastFetch to be saved/loaded as 0 if we have to rebuild the sql
         var.file.commit()
@@ -95,10 +94,10 @@ def load_messages(number):
     cur = var.file.cursor()
     cur.arraysize = 50 #no more than 50 most recent messages
     name = var.currentAccount.replace("@","_").replace(".","_") #TABLENAME FORMATTING
-    cur.execute("SELECT * FROM "+name+" WHERE number=? ORDER BY uid", (number,))
+    cur.execute("SELECT * FROM "+name+" WHERE number=? ORDER BY date", (number,))
     fetch = cur.fetchmany()
     for item in fetch:
-        list.append((item['sent'], item['number'], item['message']))
+        list.append((item['sent'], item['number'], item['message'])) #TODO: include date and now boken, something(??) changed
     mainQ.append((load_messages,(number, list)))
 
 def save_messages(messagelist):
@@ -110,16 +109,14 @@ def save_messages(messagelist):
         list.append(item.tuple())
     name = var.currentAccount.replace("@","_").replace(".","_") #TABLENAME FORMATTING
     cur = var.file.cursor()
-    cur.execute("BEGIN")
-    cur.executemany("INSERT OR IGNORE INTO "+name+" VALUES (?, ?, ?, ?)", list)
+    cur.executemany("INSERT OR IGNORE INTO "+name+" VALUES (?, ?, ?, ?, ?)", list)
     var.file.commit()
 
 def save_account(account, password, favorites):
     cur = var.file.cursor()
-    cur.execute("BEGIN")
     cur.execute("INSERT OR IGNORE INTO accounts VALUES (?, ?, ?)", (account, '', '[]')) #Contacts must start as empty list!
     name = account.replace("@","_").replace(".","_") #TABLENAME FORMATTING
-    cur.execute("CREATE TABLE IF NOT EXISTS "+name+" (uid INTEGER PRIMARY KEY ASC, number TEXT, message TEXT, sent INTEGER)")
+    cur.execute("CREATE TABLE IF NOT EXISTS "+name+" (uid INTEGER PRIMARY KEY ASC, date INTEGER, number TEXT, message TEXT, sent INTEGER)")
     if password:
         cur.execute("UPDATE accounts SET password=? WHERE account=?", (encode64_string(password,), account))
     else:

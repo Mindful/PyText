@@ -3,8 +3,7 @@ from tkinter import ttk
 from tkinter import messagebox
 import pt_mail as m, pt_data as d, pt_util, queue, pt_data_internal, pt_mail_internal
 
-#MAIN TODO: STORE DATE (RECEIVED DATE CHECKED AGAINST THE ACTUAL IMAP DATE, AND SENT DATE)
-#SORT MESSAGES BY DATE TO DISPLAY THEM
+
 
 #new messages update should be a lsit: "New messages from: x, y, z..." not one per line
 
@@ -49,10 +48,9 @@ class var:
 
 class messages:
 
+    #TODO: update to include dates in messagetuples
     #this list may need to be updated when a contact is added (or potentially removed) to reflect names
     #exact naming should be determined when we load; that's when we check for an appropriate contact entry
-
-    #this also needs SQL loading, which is going to have to be done with thread communication
         def __init__(self):
             self.dict = {}
 
@@ -86,7 +84,7 @@ class messages:
 
         def received(self, msglist):
             for m in msglist:
-                print(m)
+                #print(m)
                 if self.dict.get(m.number, False):
                     self.add(False, m.number, m.text)
 
@@ -109,7 +107,6 @@ class discussionFrame:
 
     def writeMsg(self, msg):
         if msg[1] != self.number: raise Exception("irrelevant write")
-        #def log(self, string, emphasis_start = 0, emphasis_end = 0, linebreak = True):
         self.text['state']='normal'
         self.text.insert(self.line, '\n') #this avoids our fencepost issue by appending a linebreak to the previous line, basically
         self.text.yview('moveto', '1.0')

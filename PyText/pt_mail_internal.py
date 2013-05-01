@@ -1,4 +1,4 @@
-import imaplib, smtplib, email, pt_util, collections, time, pt_data
+import imaplib, smtplib, email, pt_util, collections, time, email.parser as parse, pt_data, re, quopri
 from email.mime.text import MIMEText
 
 q = pt_util.fq()
@@ -7,11 +7,10 @@ q = pt_util.fq()
 mainQ = None
 running = True
 
-class var: #there are more addresses; like vzwpix.com, stuff for multimedia messages TODO
-    #SOMETHING HAPPENS DIFFERENTLY WHEN PARSING UNREAD EMAILS; I'M GETTING DIFFERENTLY FORMATTED RESULTS
+class var: 
 
-
-    #simple/send-to addresses should always be first in the tuple for the sake of consistency
+    #Addresses for each of the providers. This needs to be comprehensive to catch incoming messages properly.
+    #Simple/send-to addresses should always be first in the tuple for the sake of consistency
     addresses = collections.OrderedDict((('sprint',('@messaging.sprintpcs.com','@pm.sprint.com')),
         ('verizon',('@vtext.com','@vzwpix.com')),
         ('t-mobile', ('@tmomail.net',)), #only one, as far as I can see
@@ -30,18 +29,19 @@ class var: #there are more addresses; like vzwpix.com, stuff for multimedia mess
     smtp = None
 
 class msg:
-    def __init__(self, text, address, uid, sent):
+    def __init__(self, text, address, uid, date, sent):
         'Message body, sender address (converted to phone #), UID, and 1 for sent or 0 for received'
         self.text = text
         self.number = address.rpartition('@')[0]
         self.uid = uid
         self.sent = sent
+        self.date = date
 
     def __str__(self):
         return self.text
 
     def tuple(self):
-        return (self.uid, self.number, self.text, self.sent)
+        return (self.uid, self.date, self.number, self.text, self.sent)
 
 
 
@@ -94,7 +94,6 @@ def logon(account, password):
     if not smtpHost:
         mainQ.mailException('Unable to determine SMTP host')
         return
-    #we need smtp connection AND imap connection. good times
     ttls = True
     try:
         var.smtp = smtplib.SMTP(smtpHost[0], smtpHost[1])
@@ -149,46 +148,80 @@ def fetchAll():
     for item in list:
         searchString += ('FROM "' + item +'" ')
     searchString = searchString.strip()+' UID '+str(pt_data.internal.var.lastFetch+1)+':*' 
-    #IMPORTANT: IMAP ranges are inclusive, so it's at least one greater than the lastFetch's UID
     var.status, data = var.imap.UID('search', None, searchString)
-    if data == [b'']: return #IF DATA IS EMPTY, RETURN HERE
+    if data == [b'']: return #If there's nothing to fetch, return here
     check()
     fetch = ''
     list = data[0].decode().split(" ")
     for d in list:
         fetch+= d+','
     fetch = fetch.strip(',')
-    var.status, texts = var.imap.UID('fetch', fetch, '(RFC822)')
-    results = []
-    for a in texts:
-        ms = parseEmail(a)
-        #file.write(str(a))
-        if ms:
-            results.append(ms)
-            #print(ms.sender+' '+ms.uid)
-            #print(re.items())
-        else:
-            pass
-            #parse the possible values of other parts of the list; seen so far is b')' and b' FLAGS (\\Seen))'
+    var.status, texts = var.imap.UID('fetch', fetch, '(INTERNALDATE BODY[1] BODY[HEADER.FIELDS (FROM)])')
+    results = parseEmails(texts) #Is it safe to pass the same list reference to these two separate functions?
+    pt_data.save_messages(results) #Save newly retrieved messages
+    mainQ.append((fetchAll, results)) #Log newly retreived messages
 
-    pt_data.save_messages(results)
-    mainQ.append((fetchAll, results))
-    #TODO IMPORTANT - pass messages to gui thread somehow, probably drop them in queue tagged messagelist
-    #also, probably want to log when we get new message from someone, whether their contact frame is open or not
-    #print(fetch)
 
-def parseEmail(emailTuple):
-    if isinstance(emailTuple, tuple):
-        #get uid by searching for "UID" and then getting the next word
-        metadata = emailTuple[0].decode().split(' ')
-        for x in range(0, len(metadata)):
-            if metadata[x].find('UID')!=-1:
-                uid = metadata[x+1]
-        mail = email.message_from_bytes(emailTuple[1])
-        print(mail['Date'])
-        for part in mail.walk():
-            if part.get_content_type()=='text/plain':
-                text = part.get_payload().strip()
-                break
-        return msg(text, mail['From'], uid, 0)
-    else: return False
+def parseEmails(emailList):
+    ret = []
+    x = 0
+    max = len(emailList)
+    while x < max:
+        m = emailList[x]
+        if isinstance(m, tuple):
+            #Parse the metadata
+            metadata = m[0].decode()
+            uidLoc = metadata.find('UID ')+4 #Length 4, so we add 4 to look afterwards
+            uid = metadata[uidLoc:metadata.find(' ', uidLoc)]
+            internaldateLoc = metadata.find('INTERNALDATE ') #No +i here, we want to include 'INTERNALDATE' for parsing puposes
+            internaldate = metadata[internaldateLoc: metadata.find('" ')+1] #We want the space after the ", so we add 1
+            date = int(time.mktime(imaplib.Internaldate2tuple(internaldate.encode()))) #Internaldate->timetuple->float->int
+            #Compose the actual email
+            p1 = m[1] #Get the headers
+            x = x+1
+            p2 = emailList[x][1] #Get the first part of the body (only part we fetch)
+            header = parse.BytesHeaderParser().parsebytes(p1)
+            if b'<html>' == p2[0:6]:
+                text = decodeAndStrip(p2)
+            else: 
+                text = p2.decode()
+            print(text, header['From'], uid, date, 0)
+            ret.append(msg(text, header['From'], uid, date, 0))
+        x = x+1 #This is the normal loop increment
+    return ret
+
+
+def decodeAndStrip(bytes):
+    #Source: http://www.codigomanso.com/en/2010/09/truco-manso-eliminar-tags-html-en-python/
+    #Modified to also handle quoted-printables
+    
+    text = quopri.decodestring(bytes).decode()
+    # apply rules in given order!
+    rules = [
+    { r'>\s+' : u'>'},                  # remove spaces after a tag opens or closes
+    { r'\s+' : u' '},                   # replace consecutive spaces
+    { r'\s*<br\s*/?>\s*' : u'\n'},      # newline after a <br>
+    { r'</(div)\s*>\s*' : u'\n'},       # newline after </p> and </div> and <h1/>...
+    { r'</(p|h\d)\s*>\s*' : u'\n\n'},   # newline after </p> and </div> and <h1/>...
+    { r'<head>.*<\s*(/head|body)[^>]*>' : u'' },     # remove <head> to </head>
+    { r'<a\s+href="([^"]+)"[^>]*>.*</a>' : r'\1' },  # show links instead of texts
+    { r'[ \t]*<[^<]*?/?>' : u'' },            # remove remaining tags
+    { r'^\s+' : u'' }                   # remove spaces at the beginning
+    ]
+ 
+    for rule in rules:
+        for (k,v) in rule.items():
+            regex = re.compile (k)
+            text  = regex.sub (v, text)
+ 
+    # replace special strings
+    special = {
+    '&nbsp;' : ' ', '&amp;' : '&', '&quot;' : '"',
+    '&lt;'   : '<', '&gt;'  : '>'
+    }
+ 
+    for (k,v) in special.items():
+        text = text.replace (k, v)
+ 
+    return text
+
