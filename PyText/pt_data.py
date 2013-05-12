@@ -29,9 +29,9 @@ def save_account(account, password = None, favorites = None): #this needs to be 
     'Save account-related values. If no values are specified, the function does nothing'
     internal.q.add(lambda: internal.save_account(account, password, favorites))
 
-def load_contacts(account): #this needs to be updated to also load account-specific settings
+def load_account(account): #this needs to be updated to also load account-specific settings
     'Load any settings associated with the given account. Also sets this account as the current account.'
-    internal.q.add(lambda: internal.load_contacts(account))
+    internal.q.add(lambda: internal.load_account(account))
     
 def save_settings():
     'Save general PyText settings.'

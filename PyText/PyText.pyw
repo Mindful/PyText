@@ -513,11 +513,11 @@ class loginFrame:
             dVar.accounts[self.account_string.get()] = ''
             d.save_account(self.account_string.get())
         q.add(self.inactive)
-        d.load_contacts(self.account_string.get())
-        m.fetch()
+        d.load_account(self.account_string.get())
+        #m.fetch() called by d.load_account
         var.infoFrame.log("Logged in as "+self.account_string.get()+" successfully.",13,13+len(self.account_string.get()))
         if not ttls:
-            var.infoFrame.log("Could not start TTLS (STARTTLS); the server may not support it. Using unencrypted connection.")
+            var.infoFrame.log("Could not start TTLS (STARTTLS); the server may not support it.")
 
 
     def login(self, *args):
@@ -637,7 +637,7 @@ def init():
     var.contactFrame = contactFrame()
     var.infoFrame = infoFrame() #must be initialized last to get global width?
     q = pt_util.main_fq({'genericFunction': genericFunction, 'mailException': mailException, 
-                         'dataException': dataException, d.internal.load_contacts: populateContacts, d.internal.load_messages: loadedMessages,
+                         'dataException': dataException, d.internal.load_account: populateContacts, d.internal.load_messages: loadedMessages,
                          m.internal.logon: var.loginFrame.saveLogon, m.internal.logout: mainLogout, m.internal.fetchAll: var.messages.received })
     d.init(q, var)
     m.init(q)

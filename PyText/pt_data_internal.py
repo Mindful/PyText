@@ -11,7 +11,7 @@ class var: #python's core classes are supposedly threadsafe in cPython, so I sho
     accounts ={} #'accountName': settings //note that settings should include password as its FIRST value
     currentAccount = ''
     contacts = pt_util.ContactsList()
-    lastFetch = 0
+    lastFetch = 0 #TODO: ALL WRONG. LASTFETCH CAN'T COME FROM THE CONFIG FILE, IT'S ACCOUNT SPECIFIC
 
     fileName = 'data.pt'
     settingsName = 'config.ini'
@@ -65,12 +65,11 @@ def init(mainVar):
     if build:
         var.file = sqlite3.connect(var.fileName)
         cur = var.file.cursor()
-        cur.execute("CREATE TABLE accounts (account TEXT, password TEXT, contacts TEXT, UNIQUE(account))") #no duplicate accounts
+        cur.execute("CREATE TABLE accounts (account TEXT, password TEXT, contacts TEXT, lastfetch INTEGER, UNIQUE(account))") #no duplicate accounts
         #we may want to force lastFetch to be saved/loaded as 0 if we have to rebuild the sql
         var.file.commit()
     if buildSettings:
         var.config['settings'] = var.settings
-        var.config['fetch'] = {'last_fetch': var.lastFetch}
         with open(var.settingsName, 'w') as configfile:
             var.config.write(configfile)
         #I think it autocloses after this
@@ -102,19 +101,24 @@ def load_messages(number):
 
 def save_messages(messagelist):
     list = []
+    newLast = False
     for item in messagelist:
         UID = int(item.uid)
         if UID > var.lastFetch:
             var.lastFetch = UID #update most recent UID if it's > than old one
+            newLast = True
         list.append(item.tuple())
-    name = var.currentAccount.replace("@","_").replace(".","_") #TABLENAME FORMATTING
     cur = var.file.cursor()
+    if newLast:
+        print('newlast')
+        cur.execute("UPDATE accounts SET lastfetch=? WHERE account=?", (var.lastFetch, var.currentAccount))
+    name = var.currentAccount.replace("@","_").replace(".","_") #TABLENAME FORMATTING
     cur.executemany("INSERT OR IGNORE INTO "+name+" VALUES (?, ?, ?, ?, ?)", list)
     var.file.commit()
 
 def save_account(account, password, favorites):
     cur = var.file.cursor()
-    cur.execute("INSERT OR IGNORE INTO accounts VALUES (?, ?, ?)", (account, '', '[]')) #Contacts must start as empty list!
+    cur.execute("INSERT OR IGNORE INTO accounts VALUES (?, ?, ?, ?)", (account, '', '[]', 0)) #Contacts must start as empty list!
     name = account.replace("@","_").replace(".","_") #TABLENAME FORMATTING
     cur.execute("CREATE TABLE IF NOT EXISTS "+name+" (uid INTEGER PRIMARY KEY ASC, date INTEGER, number TEXT, message TEXT, sent INTEGER)")
     if password:
@@ -126,16 +130,19 @@ def save_account(account, password, favorites):
     var.file.commit()
     
 
-def load_contacts(account): 
+def load_account(account): 
     var.currentAccount = account
     cur = var.file.cursor()
     cur.execute("SELECT * FROM accounts WHERE account=?", (account,)) #must be a tuple, even if there is only one value
     a = cur.fetchone()
+    print(a[3])
+    var.lastFetch = a[3]
     var.contacts.fromList(json.loads(a[2], object_hook=json_contact)) #note this overrides defaults, makes testing hard
     for c in var.contacts.list: #auto load messages for all favorited contacts
         if c.favorited == '1':
             load_messages(c.number)
-    mainQ.instruction(load_contacts)
+    pt_mail.fetch()
+    mainQ.instruction(load_account)
     
 
 def save_contacts(account):
@@ -147,14 +154,12 @@ def save_contacts(account):
 def save_settings():
     #print(var.settings)
     var.config['settings'] = var.settings
-    var.config['fetch'] = {'last_fetch': var.lastFetch}
     with open(var.settingsName, 'w') as configfile:
         var.config.write(configfile)
 
 def load_settings():
     var.config.read(var.settingsName)
     var.settings = dict(var.config['settings'])
-    var.lastFetch = int(var.config['fetch']['last_fetch'])
 
 
 def load():

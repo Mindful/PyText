@@ -1,4 +1,4 @@
-import imaplib, smtplib, email, pt_util, collections, time, email.parser as parse, pt_data, re, quopri
+import imaplib, smtplib, email, pt_util, collections, time, email.parser as parse, pt_data, re, quopri, sys
 from email.mime.text import MIMEText
 
 q = pt_util.fq()
@@ -22,7 +22,7 @@ class var:
         ('alltel', ('@message.alltel.com','@mms.alltel.net')))) #this is verizon/alltell, not pure alltell. second address may be redundant
 
     imaps = {'gmail.com':'imap.gmail.com', 'yahoo.com':'imap.mail.yahoo.com', 'aol.com':'imap.aol.com'}
-    smtps = {'gmail.com':('smtp.gmail.com', 587), 'smtp.aol.com':('smtp.aol.com', 587), 'yahoo.com':('smtp.mail.yahoo.com', 587)}
+    smtps = {'gmail.com':('smtp.gmail.com', 587), 'aol.com':('smtp.aol.com', 587), 'yahoo.com':('smtp.mail.yahoo.com', 587)}
 
     status = ''
     imap = None
@@ -64,6 +64,7 @@ def init():
     if var.smtp != None:
         var.smtp.quit()
     if var.imap != None:
+        var.imap.close()
         var.imap.logout()
 
 def terminate():
@@ -103,7 +104,6 @@ def logon(account, password):
             ttls = False
         var.smtp.ehlo()
         var.smtp.login(account, password)
-    #except smtplib.SMTPException as e:
     except Exception as e:
         mainQ.mailException(str(e))
         return
@@ -111,21 +111,22 @@ def logon(account, password):
         var.imap = imaplib.IMAP4_SSL(imapHost)
         var.imap.login(account, password)
         var.status, msgs = var.imap.select('INBOX')
-    #except imaplib.IMAP4.error as e:
     except Exception as e:
         mainQ.mailException(str(e))
         return
     if check(): #logon successful
         pt_data.internal.var.currentAccount = account
-        #mainQ.instruction(logon)
         mainQ.append((logon, ttls))
 
 def logout():
-    var.imap.close()
-    var.imap.logout()
-    var.smtp.quit()
-    var.imap = None
-    var.smtp = None
+    try:
+        var.imap.close()
+        var.imap.logout()
+        var.smtp.quit()
+        var.imap = None
+        var.smtp = None
+    except Exception:
+        pass
     mainQ.instruction(logout)
     #if var.status != 'BYE':
     #   mainQ.mailException(var.status)
@@ -148,7 +149,9 @@ def fetchAll():
     for item in list:
         searchString += ('FROM "' + item +'" ')
     searchString = searchString.strip()+' UID '+str(pt_data.internal.var.lastFetch+1)+':*' 
+    print('using lastfetch:'+str(pt_data.internal.var.lastFetch))
     var.status, data = var.imap.UID('search', None, searchString)
+    print('data:'+str(data))
     if data == [b'']: return #If there's nothing to fetch, return here
     check()
     fetch = ''
@@ -157,7 +160,7 @@ def fetchAll():
         fetch+= d+','
     fetch = fetch.strip(',')
     var.status, texts = var.imap.UID('fetch', fetch, '(INTERNALDATE BODY[1] BODY[HEADER.FIELDS (FROM)])')
-    results = parseEmails(texts) #Is it safe to pass the same list reference to these two separate functions?
+    results = parseEmails(texts) #We can pass the list to multiple threads because cPython's data structures are threadsafe
     pt_data.save_messages(results) #Save newly retrieved messages
     mainQ.append((fetchAll, results)) #Log newly retreived messages
 
@@ -170,22 +173,31 @@ def parseEmails(emailList):
         m = emailList[x]
         if isinstance(m, tuple):
             #Parse the metadata
+            #TODO: we _MAY_ need to generalize this to determine whether metadata is in emaliList[x][0] or emailList[x+1][0]
             metadata = m[0].decode()
             uidLoc = metadata.find('UID ')+4 #Length 4, so we add 4 to look afterwards
             uid = metadata[uidLoc:metadata.find(' ', uidLoc)]
             internaldateLoc = metadata.find('INTERNALDATE ') #No +i here, we want to include 'INTERNALDATE' for parsing puposes
             internaldate = metadata[internaldateLoc: metadata.find('" ')+1] #We want the space after the ", so we add 1
             date = int(time.mktime(imaplib.Internaldate2tuple(internaldate.encode()))) #Internaldate->timetuple->float->int
+
             #Compose the actual email
-            p1 = m[1] #Get the headers
-            x = x+1
-            p2 = emailList[x][1] #Get the first part of the body (only part we fetch)
+            #Determine location of body/headers
+            if b'HEADER.FIELDS' in m[0]:
+                p1 = m[1] #Get the headers
+                x = x+1
+                p2 = emailList[x][1] #Get the first part of the body (only part we fetch)
+            else:
+                p2 = m[1]
+                x = x+1
+                p1 = emailList[x][1]
             header = parse.BytesHeaderParser().parsebytes(p1)
             if b'<html>' == p2[0:6]:
                 text = decodeAndStrip(p2)
             else: 
                 text = p2.decode()
-            print(text, header['From'], uid, date, 0)
+            #TODO: perhaps we want to dynamically detect which of the two entries is the header one
+            #IMAP provides the result type in the metadata, so we can most certainly look there using "in"
             ret.append(msg(text, header['From'], uid, date, 0))
         x = x+1 #This is the normal loop increment
     return ret
