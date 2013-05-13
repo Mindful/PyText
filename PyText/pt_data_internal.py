@@ -7,11 +7,11 @@ mainQ = None
 running = True
 
 class var: #python's core classes are supposedly threadsafe in cPython, so I should be able to just read/write this from the main thread
-    settings = {'save_account': '1', 'save_password': '1', 'default_account':'', 'confirmation_windows': '0'} 
+    settings = {'save_account': '1', 'save_password': '1', 'default_account':'', 'confirmation_windows': '0', 'delete_on_fetch':'0'} 
     accounts ={} #'accountName': settings //note that settings should include password as its FIRST value
     currentAccount = ''
     contacts = pt_util.ContactsList()
-    lastFetch = 0 #TODO: ALL WRONG. LASTFETCH CAN'T COME FROM THE CONFIG FILE, IT'S ACCOUNT SPECIFIC
+    lastFetch = 0
 
     fileName = 'data.pt'
     settingsName = 'config.ini'

@@ -99,7 +99,6 @@ class messages:
 
         def sent(self, number, text):
             #TODO: need a way to handle the UID (negative incrementing, I think) of sent msgs,
-            #also that second -1 should be a date
             #Format may need to be false here, if we get the number from the discussionframe
             add(pt_util.msg(text, number, -1, int(time.mktime(time.gmtime())), 1))
 
@@ -111,8 +110,6 @@ class messages:
 class discussionFrame:
 
     def writeMsg(self, msg):
-        #TODO: this is writing tons of extra linebreaks. why? because linebreaks in messages are screwing things up; it can't recognize
-        #that a message could take up more than one line. I think my linenumber is wrong, that's what's happening
         #TODO: also, need to update this so the cursor's back at the bottom when we're done, and we can get to writing.
         if msg.number != self.number:
             raise Exception("irrelevant write")
