@@ -48,7 +48,6 @@ class var:
 
 class messages:
 
-    #TODO: update to include dates in messagetuples
     #this list may need to be updated when a contact is added (or potentially removed) to reflect names
     #exact naming should be determined when we load; that's when we check for an appropriate contact entry
         def __init__(self):
@@ -59,14 +58,14 @@ class messages:
         #    return self.dict.get(index, [])
         
 
-        def add(self, sent, number, text):
-            list = self.dict.get(number, False)
-            msg = (sent, number, text)
+        def add(self, msg):
+            list = self.dict.get(msg.number, False)
             if list:
-                list.append(msg)
-                if var.discussionFrame.number == number:
-                    var.discussionFrame.writeMsg(msg)
-            else: raise Exception("attempting to add messages for an unloaded address:"+number)
+                if (int(msg.uid) != d.internal.var.lastFetch):
+                    list.append(msg) #problem; writing same msg over and over when it's the last one in the mailbox
+                    if var.discussionFrame.number == msg.number:
+                        var.discussionFrame.writeMsg(msg)
+            else: raise Exception("attempting to add messages for an unloaded address:"+msg.number)
 
 
 
@@ -75,7 +74,6 @@ class messages:
             if list:
                 self.write(list)
             else:
-                print('loading')
                 d.load_messages(number)
 
 
@@ -167,7 +165,7 @@ class discussionFrame:
         self.textBinding()
         self.line = 1.0
 
-    def clear(self): #written twice on first set. why?
+    def clear(self): 
         self.person = None
         self.number = None
         self.provider = None

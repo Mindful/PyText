@@ -27,6 +27,7 @@ class var:
     status = ''
     imap = None
     smtp = None
+    fetchGood = False
 
 
 
@@ -44,7 +45,12 @@ def addressesList():
 
 def init():
     #any mail initialization code goes here
+    #TODO: this loop should include a timer check so that once every 3 seconds, we append a fetch to the queue
+    lastImap = 0
     while running:
+        if var.fetchGood and time.time()>lastImap+3:
+            lastImap = time.time()
+            q.add(fetchAll)
         if len(q) > 0:
             q.run()
     if var.smtp != None:
@@ -105,6 +111,7 @@ def logon(account, password):
         mainQ.append((logon, ttls))
 
 def logout():
+    var.fetchGood = False
     try:
         var.imap.close()
         var.imap.logout()
@@ -129,7 +136,7 @@ def mail(text, number, provider):
 
 
 def fetchAll():
-
+    var.fetchGood = True
     list = addressesList()
     searchString = 'or '*(len(list)-1)
     for item in list:
