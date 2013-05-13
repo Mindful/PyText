@@ -48,8 +48,7 @@ def init():
     #TODO: this loop should include a timer check so that once every 3 seconds, we append a fetch to the queue
     lastImap = 0
     while running:
-        if var.fetchGood and time.time()>lastImap+3:
-            lastImap = time.time()
+        if var.fetchGood and time.time()>lastImap+3 and var.imap:
             q.add(fetchAll)
         if len(q) > 0:
             q.run()
@@ -116,10 +115,10 @@ def logout():
         var.imap.close()
         var.imap.logout()
         var.smtp.quit()
-        var.imap = None
-        var.smtp = None
     except Exception:
         pass
+    var.imap = None
+    var.smtp = None
     mainQ.instruction(logout)
     #if var.status != 'BYE':
     #   mainQ.mailException(var.status)
@@ -136,6 +135,11 @@ def mail(text, number, provider):
 
 
 def fetchAll():
+    #print('fetch')
+    if not var.imap:
+        var.fetchGood = False
+        return
+    lastImap = time.time()
     var.fetchGood = True
     list = addressesList()
     searchString = 'or '*(len(list)-1)
@@ -151,6 +155,7 @@ def fetchAll():
         fetch+= d+','
     fetch = fetch.strip(',')
     var.status, texts = var.imap.UID('fetch', fetch, '(INTERNALDATE BODY[1] BODY[HEADER.FIELDS (FROM)])')
+    #print(texts)
     results = parseEmails(texts) #We can pass the list to multiple threads because cPython's data structures are threadsafe
     pt_data.save_messages(results) #Save newly retrieved messages
     mainQ.append((fetchAll, results)) #Log newly retreived messages
@@ -189,7 +194,7 @@ def parseEmails(emailList):
                 text = p2.decode()
             #TODO: perhaps we want to dynamically detect which of the two entries is the header one
             #IMAP provides the result type in the metadata, so we can most certainly look there using "in"
-            ret.append(pt_util.msg(text, header['From'], uid, date, 0))
+            ret.append(pt_util.msg(text.replace('\n', ' '), header['From'], uid, date, 0))
         x = x+1 #This is the normal loop increment
     return ret
 

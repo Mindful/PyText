@@ -61,7 +61,9 @@ class messages:
         def add(self, msg):
             list = self.dict.get(msg.number, False)
             if list:
-                if (int(msg.uid) != d.internal.var.lastFetch):
+                if (msg.uid != list[-1].uid):
+                    print(msg.uid)
+                    print(list[-1].uid)
                     list.append(msg) #problem; writing same msg over and over when it's the last one in the mailbox
                     if var.discussionFrame.number == msg.number:
                         var.discussionFrame.writeMsg(msg)
@@ -84,6 +86,7 @@ class messages:
         def received(self, msglist):
             for m in msglist:
                 if self.dict.get(m.number, False):
+                    #print('add'+str(m))
                     self.add(m) #update only happens if we've already loaded for this contact
 
         def loaded(self, msgtuple):
@@ -108,7 +111,8 @@ class messages:
 class discussionFrame:
 
     def writeMsg(self, msg):
-        #TODO: this is writing tons of extra linebreaks. why?
+        #TODO: this is writing tons of extra linebreaks. why? because linebreaks in messages are screwing things up; it can't recognize
+        #that a message could take up more than one line. I think my linenumber is wrong, that's what's happening
         #TODO: also, need to update this so the cursor's back at the bottom when we're done, and we can get to writing.
         if msg.number != self.number:
             raise Exception("irrelevant write")
@@ -250,6 +254,7 @@ class discussionFrame:
         contact = dVar.contacts[contact]
         if contact.number == self.number:
             return #person already selected
+        self.clear()
         self.person = contact.name
         self.number = contact.number
         self.provider = contact.provider
