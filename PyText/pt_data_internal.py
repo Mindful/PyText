@@ -96,7 +96,9 @@ def load_messages(number):
     cur.execute("SELECT * FROM "+name+" WHERE number=? ORDER BY date", (number,))
     fetch = cur.fetchmany()
     for item in fetch:
-        list.append((item['sent'], item['number'], item['message'])) #TODO: include date and now boken, something(??) changed
+        #print(item[3], item[2], item[0], item[1], item[4])
+        list.append(pt_util.msg(item[3], item[2], item[0], item[1], item[4], False)) 
+        #(uid INTEGER PRIMARY KEY ASC, date INTEGER, number TEXT, message TEXT, sent INTEGER)
     mainQ.append((load_messages,(number, list)))
 
 def save_messages(messagelist):
@@ -110,7 +112,6 @@ def save_messages(messagelist):
         list.append(item.tuple())
     cur = var.file.cursor()
     if newLast:
-        print('newlast')
         cur.execute("UPDATE accounts SET lastfetch=? WHERE account=?", (var.lastFetch, var.currentAccount))
     name = var.currentAccount.replace("@","_").replace(".","_") #TABLENAME FORMATTING
     cur.executemany("INSERT OR IGNORE INTO "+name+" VALUES (?, ?, ?, ?, ?)", list)
@@ -135,7 +136,6 @@ def load_account(account):
     cur = var.file.cursor()
     cur.execute("SELECT * FROM accounts WHERE account=?", (account,)) #must be a tuple, even if there is only one value
     a = cur.fetchone()
-    print(a[3])
     var.lastFetch = a[3]
     var.contacts.fromList(json.loads(a[2], object_hook=json_contact)) #note this overrides defaults, makes testing hard
     for c in var.contacts.list: #auto load messages for all favorited contacts

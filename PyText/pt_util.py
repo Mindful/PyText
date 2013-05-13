@@ -1,6 +1,25 @@
 from collections import deque
 import string
 
+
+class msg:
+    def __init__(self, text, address, uid, date, sent, format = True):
+        'Message body, sender address (converted to phone #), UID, and 1 for sent or 0 for received'
+        self.text = text
+        if format:
+            self.number = address.rpartition('@')[0]
+        else:
+            self.number = address
+        self.uid = uid
+        self.sent = sent
+        self.date = date
+
+    def __str__(self):
+        return self.text
+
+    def tuple(self):
+        return (self.uid, self.date, self.number, self.text, self.sent)
+
 class mailException(Exception):
     def __init__(self, error):
         self.error = error.strip("b'")

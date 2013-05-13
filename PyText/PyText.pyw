@@ -75,6 +75,7 @@ class messages:
             if list:
                 self.write(list)
             else:
+                print('loading')
                 d.load_messages(number)
 
 
@@ -84,19 +85,22 @@ class messages:
 
         def received(self, msglist):
             for m in msglist:
-                #print(m)
                 if self.dict.get(m.number, False):
-                    self.add(False, m.number, m.text)
+                    self.add(m) #update only happens if we've already loaded for this contact
 
         def loaded(self, msgtuple):
             #(number, messagelist)
             if not self.dict.get(msgtuple[0], False): raise Exception("loading onto existing address:"+number)
             self.dict[msgtuple[0]] = msgtuple[1]
             if var.discussionFrame.number == msgtuple[0]:
-                self.write(msgtuple[0]) #this means we were waiting on this load to populate the current discussion frame
+                self.dict[msgtuple[0]] = msgtuple[1]
+                self.write(msgtuple[1]) #this means we were waiting on this load to populate the current discussion frame
 
         def sent(self, number, text):
-            add(True, number, text)
+            #TODO: need a way to handle the UID (negative incrementing, I think) of sent msgs,
+            #also that second -1 should be a date
+            #Format may need to be false here, if we get the number from the discussionframe
+            add(pt_util.msg(text, number, -1, int(time.mktime(time.gmtime())), 1))
 
         def clear(self):
             self.dict = {}
@@ -106,17 +110,20 @@ class messages:
 class discussionFrame:
 
     def writeMsg(self, msg):
-        if msg[1] != self.number: raise Exception("irrelevant write")
+        #TODO: this is writing tons of extra linebreaks. why?
+        #TODO: also, need to update this so the cursor's back at the bottom when we're done, and we can get to writing.
+        if msg.number != self.number:
+            raise Exception("irrelevant write")
         self.text['state']='normal'
         self.text.insert(self.line, '\n') #this avoids our fencepost issue by appending a linebreak to the previous line, basically
         self.text.yview('moveto', '1.0')
-        if msg[0]:
-            self.text.insert(self.line,"You: "+msg[2])
+        if msg.sent:
+            self.text.insert(self.line,"You: "+msg.text)
             end = str(self.line).strip("0")+'5'
             self.text.tag_add('self', self.line, end)
         else:
-            name = str(dVar.contacts.withNumber(msg[1])) #can return a Contact if it exists, else a string
-            self.text.insert(self.line,name+": "+msg[2])
+            name = str(dVar.contacts.withNumber(msg.number)) #can return a Contact if it exists, else a string
+            self.text.insert(self.line,name+": "+msg.text)
             end = str(self.line).strip("0")+str(len(name)+2)
             self.text.tag_add('person', self.line, end)
         self.line = self.line+1
@@ -243,6 +250,8 @@ class discussionFrame:
 
     def setPerson(self, contact):
         contact = dVar.contacts[contact]
+        if contact.number == self.number:
+            return #person already selected
         self.person = contact.name
         self.number = contact.number
         self.provider = contact.provider
@@ -614,7 +623,7 @@ def loadedMessages(messagetuple):
     #(number, messagelist)
     var.messages.dict[messagetuple[0]] = messagetuple[1]
     if var.discussionFrame.number == messagetuple[0]:
-        pass #this means we need to do more things, because we've just loaded for the current discussion target
+        var.messages.loaded(messagetuple)
 
 
 

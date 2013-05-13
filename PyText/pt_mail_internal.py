@@ -28,20 +28,6 @@ class var:
     imap = None
     smtp = None
 
-class msg:
-    def __init__(self, text, address, uid, date, sent):
-        'Message body, sender address (converted to phone #), UID, and 1 for sent or 0 for received'
-        self.text = text
-        self.number = address.rpartition('@')[0]
-        self.uid = uid
-        self.sent = sent
-        self.date = date
-
-    def __str__(self):
-        return self.text
-
-    def tuple(self):
-        return (self.uid, self.date, self.number, self.text, self.sent)
 
 
 
@@ -149,9 +135,7 @@ def fetchAll():
     for item in list:
         searchString += ('FROM "' + item +'" ')
     searchString = searchString.strip()+' UID '+str(pt_data.internal.var.lastFetch+1)+':*' 
-    print('using lastfetch:'+str(pt_data.internal.var.lastFetch))
     var.status, data = var.imap.UID('search', None, searchString)
-    print('data:'+str(data))
     if data == [b'']: return #If there's nothing to fetch, return here
     check()
     fetch = ''
@@ -198,7 +182,7 @@ def parseEmails(emailList):
                 text = p2.decode()
             #TODO: perhaps we want to dynamically detect which of the two entries is the header one
             #IMAP provides the result type in the metadata, so we can most certainly look there using "in"
-            ret.append(msg(text, header['From'], uid, date, 0))
+            ret.append(pt_util.msg(text, header['From'], uid, date, 0))
         x = x+1 #This is the normal loop increment
     return ret
 
