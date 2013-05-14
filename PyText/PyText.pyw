@@ -113,7 +113,7 @@ class discussionFrame:
         #TODO: also, need to update this so the cursor's back at the bottom when we're done, and we can get to writing.
         if msg.number != self.number:
             raise Exception("irrelevant write")
-        self.text['state']='normal'
+        #self.text['state']='normal'
         self.text.insert(self.line, '\n') #this avoids our fencepost issue by appending a linebreak to the previous line, basically
         self.text.yview('moveto', '1.0')
         if msg.sent:
@@ -127,7 +127,7 @@ class discussionFrame:
             self.text.tag_add('person', self.line, end)
         self.line = self.line+1
         #stuff
-        self.text['state']='disabled'
+        #self.text['state']='disabled'
 
         #msg is tuple (False, number, text) for received, or (True, number, text) for sent
 
@@ -171,10 +171,10 @@ class discussionFrame:
         self.number = None
         self.provider = None
         self.label['text'] = 'Messaging'
-        self.text['state']='normal'
+        #self.text['state']='normal'
         self.text.delete('0.0', 'end')
         self.line = 1.0
-        self.text['state']='disabled'
+        #self.text['state']='disabled'
 
     def textBinding(self):
         self.text.bind("<Button-1>", "break") #this overwrites/disables bindings, but we do apparently have to use "break"
@@ -202,8 +202,15 @@ class discussionFrame:
         self.text.bind("<Right>", self.right)
         self.text.bind("<Up>", self.up)
         self.text.bind("<Down>", self.down)
+        self.text.bind("<BackSpace>", self.backspace)
         #bind move cursor up, move cursor left, and backspace so that they can only move onto other text tagged 'unsent'
 
+
+    def horizontalBlock(self):
+        return str(float(str(self.line).partition('.')[0])+0.4) #+0.4 for 5 chars in "You:"
+
+    def verticalBlock(self):
+        return str(float(str(self.line).partition('.')[0])+1.4) #+0.4 for 5 chars in "You:"
 
     def Return(self, null):
         return 'break' #canceled early right now, too easy to send stuff
@@ -214,7 +221,7 @@ class discussionFrame:
         return 'break'
 
     def shiftReturn(self, null):
-        self.text.insert('insert', '\n')
+        #self.text.insert('insert', '\n') #Dealing with linebreaks is too complicated to handle currently
         return 'break'
 
     def buttonRelease(self, null):
@@ -222,7 +229,9 @@ class discussionFrame:
         return 'break' #interrupts tk's response chain
 
     def left(self, null):
-        #CONDITIONALLY - CHECK FOR OUR LIMIT
+        #CONDITIONALLY - CHECK FOR OUR LIMIT - if == self.line+1.0 bad
+        if self.text.compare('insert', '==', self.horizontalBlock()):
+            return 'break'
         self.text.mark_set('insert', self.text.index('insert')+'- 1 chars')
         return 'break'
 
@@ -231,7 +240,11 @@ class discussionFrame:
         return 'break'
 
     def up(self, null):
-        #CONDITIONALLY - CHECK FOR OUR LIMIT
+        #CONDITIONALLY - CHECK FOR OUR LIMIT - if < self.line+2.0 bad
+        print(self.text.index('insert'))
+        print(self.verticalBlock())
+        if self.text.compare('insert', '<', self.verticalBlock()):
+            return 'break'
         self.text.mark_set('insert', self.text.index('insert')+'- 1 lines')
         return 'break'
 
@@ -240,6 +253,10 @@ class discussionFrame:
         return 'break'
 
     def backspace(self, null):
+        #CONDITIONALLY - CHECK FOR OUR LIMIT - if == self.line+1.0 bad
+        if self.text.compare('insert', '==', self.horizontalBlock()): #TODO: this is wrong, because line # is weird with word wrap
+            return 'break'
+        self.text.delete("insert-1c") #remove character before insertion cursor
         return 'break'
 
 
@@ -387,7 +404,9 @@ class contactFrame:
         self.deleteContact_button.grid(column = 1, row = 8, sticky = (N,W,E))
 
     def onDoubleClick(self, null):
-        var.discussionFrame.setPerson(self.contacts_pane.item(self.contacts_pane.selection())['text'])
+        sel = self.contacts_pane.item(self.contacts_pane.selection())['text']
+        if sel != '':
+            var.discussionFrame.setPerson(self.contacts_pane.item(self.contacts_pane.selection())['text'])
 
     def deleteContact(self, null):
         item = self.contacts_pane.selection()
