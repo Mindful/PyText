@@ -62,8 +62,6 @@ class messages:
             list = self.dict.get(msg.number, False)
             if list:
                 if (msg.uid != list[-1].uid):
-                    print(msg.uid)
-                    print(list[-1].uid)
                     list.append(msg) #problem; writing same msg over and over when it's the last one in the mailbox
                     if var.discussionFrame.number == msg.number:
                         var.discussionFrame.writeMsg(msg)
@@ -110,7 +108,7 @@ class messages:
 class discussionFrame:
 
     def writeMsg(self, msg):
-        #TODO: also, need to update this so the cursor's back at the bottom when we're done, and we can get to writing.
+        #TODO: TAG WRITTEN TEXT BLACK, DEFAULT IS THE NOT SENT YET COLOR
         if msg.number != self.number:
             raise Exception("irrelevant write")
         #self.text['state']='normal'
@@ -120,11 +118,13 @@ class discussionFrame:
             self.text.insert(self.line,"You: "+msg.text)
             end = str(self.line).strip("0")+'5'
             self.text.tag_add('self', self.line, end)
+            self.text.tag_add('final', end, str(self.line)+'+ 1l')
         else:
             name = str(dVar.contacts.withNumber(msg.number)) #can return a Contact if it exists, else a string
             self.text.insert(self.line,name+": "+msg.text)
             end = str(self.line).strip("0")+str(len(name)+2)
             self.text.tag_add('person', self.line, end)
+            self.text.tag_add('final', end, str(self.line)+'+ 1l')
         self.line = self.line+1
         #stuff
         #self.text['state']='disabled'
@@ -145,7 +145,7 @@ class discussionFrame:
         self.logout_button.grid(column = 1, row = 7, sticky = (W,S))
         self.textframe = ttk.Frame(self.frame)
         #self.text = Text(self.textframe, state = 'disabled', borderwidth = '2', background = 'White', relief = 'groove', foreground = 'Black', insertofftime = '0', font = ('Helvetica', '10'))
-        self.text = Text(self.textframe, borderwidth = '2', background = 'White', relief = 'groove', foreground = 'Black', insertofftime = '0', wrap = "word", font = ('Helvetica', '10'))
+        self.text = Text(self.textframe, borderwidth = '2', background = 'White', relief = 'groove', foreground = 'gray', state = 'disabled', insertofftime = '0', wrap = "word", font = ('Helvetica', '10'))
         self.text_scrollbar = ttk.Scrollbar(self.frame, orient=VERTICAL, command=self.text.yview)
         self.text['yscrollcommand']=self.text_scrollbar.set 
         self.text_scrollbar.grid(column = 0, row = 0, rowspan = 7, sticky = (N,E,S,W))
@@ -159,8 +159,8 @@ class discussionFrame:
         self.label.grid(column = 1, row = 0, columnspan = 4, sticky = (N,E,S,W))
         self.textframe.grid(column = 1, row = 1, columnspan = 4, rowspan = 6, sticky = (N,E,S,W))
         self.text.tag_configure('person', foreground = 'SteelBlue')
-        self.text.tag_configure('self', foreground = 'Gray')
-        self.text.tag_configure('unsent', foreground = 'LimeGreen')
+        self.text.tag_configure('self', foreground = 'slate gray')
+        self.text.tag_configure('final', foreground = 'Black')
         self.text.bind("<Up>", lambda x: self.text.yview('scroll', '-1', 'units'))
         self.text.bind("<Down>", lambda x: self.text.yview('scroll', '1', 'units'))
         self.textBinding()
@@ -171,10 +171,9 @@ class discussionFrame:
         self.number = None
         self.provider = None
         self.label['text'] = 'Messaging'
-        #self.text['state']='normal'
+        self.text['state']='normal'
         self.text.delete('0.0', 'end')
         self.line = 1.0
-        #self.text['state']='disabled'
 
     def textBinding(self):
         self.text.bind("<Button-1>", "break") #this overwrites/disables bindings, but we do apparently have to use "break"
@@ -207,17 +206,27 @@ class discussionFrame:
 
 
     def horizontalBlock(self):
-        return str(float(str(self.line).partition('.')[0])+0.4) #+0.4 for 5 chars in "You:"
+        return str(float(str(self.line).partition('.')[0])+0.5) #+0.5 for 5 chars in "You: "
 
     def verticalBlock(self):
-        return str(float(str(self.line).partition('.')[0])+1.4) #+0.4 for 5 chars in "You:"
+        return str(float(str(self.line).partition('.')[0])+1.5) #+0.5 for 5 chars in "You: "
 
     def Return(self, null):
-        return 'break' #canceled early right now, too easy to send stuff
         #TODO: we also want to break if the stuff to send is empty. mostly, we want our textbox working properly
         #we also want to log sent messages
-        if self.number == None or self.provider == None: return 'break'
-        m.mail(self.text.get('1.0', 'end'),self.number, self.provider)
+        if self.number == None or self.provider == None: 
+            return 'break'
+        body = self.text.get(self.horizontalBlock(), 'end') #this is being empty for strings past the first, so it's wrong
+        if body == '': 
+            return 'break'
+        #m.mail(body ,self.number, self.provider) #TODO: SAVE SENT MESSAGES IF NOT ALREADY
+        self.text.insert(str(self.line)+'+1l', '\n') 
+        self.text.tag_add('final', self.horizontalBlock(), str(self.line).strip('.00')+'.end')
+        self.line = self.line+1
+        self.text.insert(self.line, 'You: ')
+        self.text.tag_add('self', self.line, self.horizontalBlock())
+        self.line = self.line+1
+        self.text.yview('moveto', '1.0')
         return 'break'
 
     def shiftReturn(self, null):
@@ -269,6 +278,8 @@ class discussionFrame:
         if contact.number == self.number:
             return #person already selected
         self.clear()
+        self.text.insert('1.0', 'You: ')
+        self.text.tag_add('self', '1.0', '1.5')
         self.person = contact.name
         self.number = contact.number
         self.provider = contact.provider
@@ -294,6 +305,7 @@ class discussionFrame:
         var.loginFrame.logon_button['state'] = 'disabled'
         var.contactWindow.close()
         var.discussionFrame.clear()
+        var.discussionFrame.text['state']='disabled'
         var.messages.clear()
         m.logout()
         mainFrame.grid_forget()
