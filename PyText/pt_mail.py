@@ -34,6 +34,6 @@ def fetch():
     'Run a fetch and save the results'
     internal.q.add(internal.fetchAll)
 
-def mail(message, number, provider):
-    'Send the message to the number at the provider. Really tho'
-    internal.q.add(lambda: internal.mail(message, number, provider))
+def mail(msg, provider):
+    'Send the message to its number at the provider.'
+    internal.q.add(lambda: internal.mail(msg, provider))

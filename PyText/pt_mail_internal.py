@@ -122,9 +122,16 @@ def logout():
     #   mainQ.mailException(var.status)
 
 
-def mail(text, number, provider):
+def mail(msg, provider):
     #TODO: this needs to handle breaking messages up into multiple numbered texts if necessary
     #remember the counting algorithm has to be dynamic to include possible counts of numbering characters too
+    #------------------------------------------
+    #I calculate the number of markers necessary
+    #add that number to the total
+    #and then calculate the number of markers necessary again
+    #until it stops changing
+    print(msg.text)
+    return
     to = number+var.addresses[provider][0]
     From = pt_data.internal.var.currentAccount
     message = MIMEText(text)
@@ -158,7 +165,6 @@ def fetchAll():
     for item in list:
         strlist = strlist+item+','
     strlist = strlist.strip(',')
-    print(strlist)
     if pt_data.internal.var.settings['delete_on_fetch']=='1': #off for now, for testing
         var.imap.UID('store', strlist, '+FLAGS.SILENT', '(\Deleted)')
         var.imap.expunge()

@@ -10,7 +10,8 @@ class msg:
             self.number = address.rpartition('@')[0]
         else:
             self.number = address
-        self.uid = int(uid)
+        if uid:
+            self.uid = int(uid)
         self.sent = sent
         self.date = date
 

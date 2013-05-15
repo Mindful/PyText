@@ -49,3 +49,6 @@ def load_messages(number):
     'Load messages from a number and pass the info to the main thread, where it is added to the local messages object'
     internal.q.add(lambda: internal.load_messages(number))
 
+def save_outgoing(msg):
+    'Save a copy of an outgoing message'
+    internal.q.add(lambda: internal.save_outgoing(msg))

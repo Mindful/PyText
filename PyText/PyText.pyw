@@ -1,7 +1,7 @@
 from tkinter import *
 from tkinter import ttk
 from tkinter import messagebox
-import pt_mail as m, pt_data as d, pt_util, queue, pt_data_internal, pt_mail_internal
+import pt_mail as m, pt_data as d, pt_util, queue, pt_data_internal, pt_mail_internal, time
 
 
 
@@ -62,10 +62,17 @@ class messages:
             list = self.dict.get(msg.number, False)
             if list:
                 if (msg.uid != list[-1].uid):
-                    list.append(msg) #problem; writing same msg over and over when it's the last one in the mailbox
+                    list.append(msg)
                     if var.discussionFrame.number == msg.number:
                         var.discussionFrame.writeMsg(msg)
             else: raise Exception("attempting to add messages for an unloaded address:"+msg.number)
+
+        def addOutgoing(self, msg):
+            list = self.dict.get(msg.number, False)
+            if list:
+                list.append(msg)
+                if var.discussionFrame.number == msg.number:
+                    var.discussionFrame.writeSent(msg)
 
 
 
@@ -95,11 +102,6 @@ class messages:
                 self.dict[msgtuple[0]] = msgtuple[1]
                 self.write(msgtuple[1]) #this means we were waiting on this load to populate the current discussion frame
 
-        def sent(self, number, text):
-            #TODO: need a way to handle the UID (negative incrementing, I think) of sent msgs,
-            #Format may need to be false here, if we get the number from the discussionframe
-            add(pt_util.msg(text, number, -1, int(time.mktime(time.gmtime())), 1))
-
         def clear(self):
             self.dict = {}
 
@@ -108,10 +110,6 @@ class messages:
 class discussionFrame:
 
     def writeMsg(self, msg):
-        #TODO: TAG WRITTEN TEXT BLACK, DEFAULT IS THE NOT SENT YET COLOR
-        if msg.number != self.number:
-            raise Exception("irrelevant write")
-        #self.text['state']='normal'
         self.text.insert(self.line, '\n') #this avoids our fencepost issue by appending a linebreak to the previous line, basically
         self.text.yview('moveto', '1.0')
         if msg.sent:
@@ -126,10 +124,14 @@ class discussionFrame:
             self.text.tag_add('person', self.line, end)
             self.text.tag_add('final', end, str(self.line)+'+ 1l')
         self.line = self.line+1
-        #stuff
-        #self.text['state']='disabled'
 
-        #msg is tuple (False, number, text) for received, or (True, number, text) for sent
+    def writeSent(self, msg):
+        self.text.insert(str(self.line)+'+1l', '\n') 
+        self.text.yview('moveto', '1.0')
+        self.text.tag_add('final', self.horizontalBlock(), str(self.line).strip('.00')+'.end')
+        self.line = self.line+1
+        self.text.insert(self.line, 'You: ')
+        self.text.tag_add('self', self.line, self.horizontalBlock())
 
     def __init__(self): 
         #be cool if we could let them type in the messaging frame, just have it show up as their pending message
@@ -216,17 +218,20 @@ class discussionFrame:
         #we also want to log sent messages
         if self.number == None or self.provider == None: 
             return 'break'
-        body = self.text.get(self.horizontalBlock(), 'end') #this is being empty for strings past the first, so it's wrong
+        body = self.text.get(self.horizontalBlock(), 'end').strip('\n')
         if body == '': 
             return 'break'
-        #m.mail(body ,self.number, self.provider) #TODO: SAVE SENT MESSAGES IF NOT ALREADY
-        self.text.insert(str(self.line)+'+1l', '\n') 
-        self.text.tag_add('final', self.horizontalBlock(), str(self.line).strip('.00')+'.end')
-        self.line = self.line+1
-        self.text.insert(self.line, 'You: ')
-        self.text.tag_add('self', self.line, self.horizontalBlock())
-        self.line = self.line+1
-        self.text.yview('moveto', '1.0')
+        msg = pt_util.msg(body, self.number, None, int(time.mktime(time.gmtime())), 1, False)
+        m.mail(msg, self.provider) 
+        d.save_outgoing(msg) #The response to this calls the actual add
+
+        #Text below here adds the message text, but that's done as a response to save_outgoing anyway
+        #self.text.insert(str(self.line)+'+1l', '\n') 
+        #self.text.tag_add('final', self.horizontalBlock(), str(self.line).strip('.00')+'.end')
+        #self.line = self.line+1
+        #self.text.insert(self.line, 'You: ')
+        #self.text.tag_add('self', self.line, self.horizontalBlock())
+        #self.text.yview('moveto', '1.0')
         return 'break'
 
     def shiftReturn(self, null):
@@ -678,7 +683,8 @@ def init():
     var.infoFrame = infoFrame() #must be initialized last to get global width?
     q = pt_util.main_fq({'genericFunction': genericFunction, 'mailException': mailException, 
                          'dataException': dataException, d.internal.load_account: populateContacts, d.internal.load_messages: loadedMessages,
-                         m.internal.logon: var.loginFrame.saveLogon, m.internal.logout: mainLogout, m.internal.fetchAll: var.messages.received })
+                         m.internal.logon: var.loginFrame.saveLogon, m.internal.logout: mainLogout, m.internal.fetchAll: var.messages.received,
+                         d.internal.save_outgoing:var.messages.addOutgoing })
     d.init(q, var)
     m.init(q)
     main.protocol("WM_DELETE_WINDOW", quit)

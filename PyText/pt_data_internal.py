@@ -54,7 +54,8 @@ class ContactEncoder(json.JSONEncoder):
             mainQ.dataException('JSON error saving contacts.')
 
 
-
+def tableName():
+    return var.currentAccount.replace("@","_").replace(".","_") #TABLENAME FORMATTING
 
 def init(mainVar):
     build = (not os.path.exists(var.fileName))
@@ -92,7 +93,7 @@ def load_messages(number):
     list = []
     cur = var.file.cursor()
     cur.arraysize = 50 #no more than 50 most recent messages
-    name = var.currentAccount.replace("@","_").replace(".","_") #TABLENAME FORMATTING
+    name = tableName()
     cur.execute("SELECT * FROM "+name+" WHERE number=? ORDER BY date", (number,))
     fetch = cur.fetchmany()
     for item in fetch:
@@ -113,14 +114,26 @@ def save_messages(messagelist):
     cur = var.file.cursor()
     if newLast:
         cur.execute("UPDATE accounts SET lastfetch=? WHERE account=?", (var.lastFetch, var.currentAccount))
-    name = var.currentAccount.replace("@","_").replace(".","_") #TABLENAME FORMATTING
+    name = tableName()
     cur.executemany("INSERT OR IGNORE INTO "+name+" VALUES (?, ?, ?, ?, ?)", list)
     var.file.commit()
+
+def save_outgoing(msg):
+    #We need UID, Date, number, message, and sent - but we know sent to be 1
+    #Get current date
+    cur = var.file.cursor()
+    name = tableName()
+    cur.execute('SELECT min(uid) FROM '+name+' as minuid')
+    msg.uid = min(cur.fetchone()[0] - 1, -1) #get a UID - we want decrementing negative UIDs 
+    mainQ.append((save_outgoing, msg))
+    cur.execute("INSERT OR IGNORE INTO "+name+" VALUES (?, ?, ?, ?, ?)", msg.tuple())
+    var.file.commit()
+
 
 def save_account(account, password, favorites):
     cur = var.file.cursor()
     cur.execute("INSERT OR IGNORE INTO accounts VALUES (?, ?, ?, ?)", (account, '', '[]', 0)) #Contacts must start as empty list!
-    name = account.replace("@","_").replace(".","_") #TABLENAME FORMATTING
+    name = tableName()
     cur.execute("CREATE TABLE IF NOT EXISTS "+name+" (uid INTEGER PRIMARY KEY ASC, date INTEGER, number TEXT, message TEXT, sent INTEGER)")
     if password:
         cur.execute("UPDATE accounts SET password=? WHERE account=?", (encode64_string(password,), account))
