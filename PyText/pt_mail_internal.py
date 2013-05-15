@@ -130,11 +130,19 @@ def mail(msg, provider):
     #add that number to the total
     #and then calculate the number of markers necessary again
     #until it stops changing
-    print(msg.text)
+
+    maxchars = 156 #The largest number of characters I can get in an outgoing email-to-text for joshuabtanner@gmail.com
+    #clearly though, the actual max is based on the length of your email
+
+    #it's 163 for pytext@yahoo.com, which is 7 characters more than joshuabtanner@gmail.com (because pytext@yahoo.com is 7 chars shorter)
+
+    #seems to be 179 - (length of address)
+
+
     return
-    to = number+var.addresses[provider][0]
+    to = msg.number+var.addresses[provider][0]
     From = pt_data.internal.var.currentAccount
-    message = MIMEText(text)
+    message = MIMEText(msg.text)
     message['From'], message['To'], message['subject'] = From, to, ''
     var.smtp.send_message(message)
 

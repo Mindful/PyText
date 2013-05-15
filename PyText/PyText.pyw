@@ -96,7 +96,10 @@ class messages:
 
         def loaded(self, msgtuple):
             #(number, messagelist)
-            if not self.dict.get(msgtuple[0], False): raise Exception("loading onto existing address:"+number)
+            print('load '+msgtuple[0])
+            print(self.dict.get(msgtuple[0]))
+            if self.dict.get(msgtuple[0]): raise Exception("loading onto existing address:"+msgtuple[0])
+            #TODO: I think we get redundant loads if we delete and recreate a contact
             self.dict[msgtuple[0]] = msgtuple[1]
             if var.discussionFrame.number == msgtuple[0]:
                 self.dict[msgtuple[0]] = msgtuple[1]
@@ -222,16 +225,8 @@ class discussionFrame:
         if body == '': 
             return 'break'
         msg = pt_util.msg(body, self.number, None, int(time.mktime(time.gmtime())), 1, False)
-        m.mail(msg, self.provider) 
+        m.mail(msg, self.provider) #TODO: Once this does the message splitting, we're golden
         d.save_outgoing(msg) #The response to this calls the actual add
-
-        #Text below here adds the message text, but that's done as a response to save_outgoing anyway
-        #self.text.insert(str(self.line)+'+1l', '\n') 
-        #self.text.tag_add('final', self.horizontalBlock(), str(self.line).strip('.00')+'.end')
-        #self.line = self.line+1
-        #self.text.insert(self.line, 'You: ')
-        #self.text.tag_add('self', self.line, self.horizontalBlock())
-        #self.text.yview('moveto', '1.0')
         return 'break'
 
     def shiftReturn(self, null):
@@ -656,8 +651,6 @@ def dataException(ex):
     dataExceptionQ.append(ex)
 
 def loadedMessages(messagetuple):
-    #(number, messagelist)
-    var.messages.dict[messagetuple[0]] = messagetuple[1]
     if var.discussionFrame.number == messagetuple[0]:
         var.messages.loaded(messagetuple)
 
