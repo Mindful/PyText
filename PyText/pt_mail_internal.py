@@ -153,8 +153,14 @@ def mail(msg, provider):
         counter = 1
         lastGrab = 0
         for x in range(1, splits+1):
-            text = str(counter) + '/' + str(splits) + ':'+body[lastGrab:(counter*length//splits)]
-            lastGrab = (counter*length//splits)
+            mid = (counter*length//splits)
+            distance = maxchars - len(body)//splits 
+            loc = body.find(' ', mid, mid+distance)
+            if loc == -1: loc = body.rfind(' ', mid, mid-distance)
+            if loc == -1: loc = mid
+            text = str(counter) + '/' + str(splits) + ':'+body[lastGrab:loc]
+
+            lastGrab = loc
             counter+=1
             message = MIMEText(text)
             message['From'], message['To'], message['subject'] = From, to, ''
