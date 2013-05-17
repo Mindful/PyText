@@ -91,18 +91,13 @@ class messages:
         def received(self, msglist):
             for m in msglist:
                 if self.dict.get(m.number, False):
-                    #print('add'+str(m))
                     self.add(m) #update only happens if we've already loaded for this contact
 
         def loaded(self, msgtuple):
             #(number, messagelist)
-            print('load '+msgtuple[0])
-            print(self.dict.get(msgtuple[0]))
             if self.dict.get(msgtuple[0]): raise Exception("loading onto existing address:"+msgtuple[0])
-            #TODO: I think we get redundant loads if we delete and recreate a contact
             self.dict[msgtuple[0]] = msgtuple[1]
             if var.discussionFrame.number == msgtuple[0]:
-                self.dict[msgtuple[0]] = msgtuple[1]
                 self.write(msgtuple[1]) #this means we were waiting on this load to populate the current discussion frame
 
         def clear(self):
@@ -115,24 +110,26 @@ class discussionFrame:
     def writeMsg(self, msg):
         self.text.insert(self.line, '\n') #this avoids our fencepost issue by appending a linebreak to the previous line, basically
         self.text.yview('moveto', '1.0')
+        lines = 1+msg.text.count('\n')
         if msg.sent:
             self.text.insert(self.line,"You: "+msg.text)
             end = str(self.line).strip("0")+'5'
             self.text.tag_add('self', self.line, end)
-            self.text.tag_add('final', end, str(self.line)+'+ 1l')
+            self.text.tag_add('final', end, str(self.line)+'+ '+str(lines)+'l')
         else:
             name = str(dVar.contacts.withNumber(msg.number)) #can return a Contact if it exists, else a string
             self.text.insert(self.line,name+": "+msg.text)
             end = str(self.line).strip("0")+str(len(name)+2)
             self.text.tag_add('person', self.line, end)
-            self.text.tag_add('final', end, str(self.line)+'+ 1l')
-        self.line = self.line+1
+            self.text.tag_add('final', end, str(self.line)+'+ '+str(lines)+'l')
+        self.line = self.line+lines
 
     def writeSent(self, msg):
-        self.text.insert(str(self.line)+'+1l', '\n') 
+        lines = 1+msg.text.count('\n')
+        self.text.insert(str(self.line)+'+ '+str(lines)+'l', '\n') 
         self.text.yview('moveto', '1.0')
-        self.text.tag_add('final', self.horizontalBlock(), str(self.line).strip('.00')+'.end')
-        self.line = self.line+1
+        self.text.tag_add('final', self.horizontalBlock(), str(self.line+lines-1).strip('.00')+'.end')
+        self.line = self.line+lines
         self.text.insert(self.line, 'You: ')
         self.text.tag_add('self', self.line, self.horizontalBlock())
 
@@ -207,7 +204,6 @@ class discussionFrame:
         self.text.bind("<Up>", self.up)
         self.text.bind("<Down>", self.down)
         self.text.bind("<BackSpace>", self.backspace)
-        #bind move cursor up, move cursor left, and backspace so that they can only move onto other text tagged 'unsent'
 
 
     def horizontalBlock(self):
@@ -217,20 +213,21 @@ class discussionFrame:
         return str(float(str(self.line).partition('.')[0])+1.5) #+0.5 for 5 chars in "You: "
 
     def Return(self, null):
-        #TODO: we also want to break if the stuff to send is empty. mostly, we want our textbox working properly
-        #we also want to log sent messages
         if self.number == None or self.provider == None: 
             return 'break'
         body = self.text.get(self.horizontalBlock(), 'end').strip('\n')
         if body == '': 
             return 'break'
         msg = pt_util.msg(body, self.number, None, int(time.mktime(time.gmtime())), 1, False)
-        m.mail(msg, self.provider) #TODO: Once this does the message splitting, we're golden
+        m.mail(msg, self.provider) #TODO: save should happen if mail is successful, or we want an eror if not. 
+        #The save is currently what calls add though, which writes, and is the reason our gui is responsive.
         d.save_outgoing(msg) #The response to this calls the actual add
         return 'break'
 
+    #TODO: Deal with linebreaks by counting lines and incrementing that many when writing
     def shiftReturn(self, null):
-        #self.text.insert('insert', '\n') #Dealing with linebreaks is too complicated to handle currently
+        self.text.insert('insert', '\n')
+        self.text.yview('moveto', '1.0')
         return 'break'
 
     def buttonRelease(self, null):
@@ -263,7 +260,7 @@ class discussionFrame:
 
     def backspace(self, null):
         #CONDITIONALLY - CHECK FOR OUR LIMIT - if == self.line+1.0 bad
-        if self.text.compare('insert', '==', self.horizontalBlock()): #TODO: this is wrong, because line # is weird with word wrap
+        if self.text.compare('insert', '==', self.horizontalBlock()):
             return 'break'
         self.text.delete("insert-1c") #remove character before insertion cursor
         return 'break'
@@ -316,7 +313,7 @@ class discussionFrame:
 
 
 class infoFrame: 
-    #todo: max log length
+    #TODO: max log length
     #also, a special function for logging "new message from X" that uses tag binding to bind opening a chat with the user you just
     #got a message from to clicking on the text
     def __init__(self):
@@ -650,10 +647,6 @@ def mailException(ex):
 def dataException(ex):
     dataExceptionQ.append(ex)
 
-def loadedMessages(messagetuple):
-    if var.discussionFrame.number == messagetuple[0]:
-        var.messages.loaded(messagetuple)
-
 
 
 def quit(): #can add a confirmation window in here to check with users if they REALLY want to quit
@@ -675,7 +668,7 @@ def init():
     var.contactFrame = contactFrame()
     var.infoFrame = infoFrame() #must be initialized last to get global width?
     q = pt_util.main_fq({'genericFunction': genericFunction, 'mailException': mailException, 
-                         'dataException': dataException, d.internal.load_account: populateContacts, d.internal.load_messages: loadedMessages,
+                         'dataException': dataException, d.internal.load_account: populateContacts, d.internal.load_messages: var.messages.loaded,
                          m.internal.logon: var.loginFrame.saveLogon, m.internal.logout: mainLogout, m.internal.fetchAll: var.messages.received,
                          d.internal.save_outgoing:var.messages.addOutgoing })
     d.init(q, var)

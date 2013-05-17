@@ -1,9 +1,5 @@
 import pt_data_internal as internal, threading
 
-# This is the file for all of PyText's data related code. Information is saved via the sqlite3 library and loaded here.
-#
-#Consider using json to pack all setting data into the second field of the account sql table
-#
 
 def init(deque, var):
     'Initializes the database as well as the data handling thread. Must be called before other pt_data functions can be used'

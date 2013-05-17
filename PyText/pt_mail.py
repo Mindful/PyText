@@ -1,10 +1,5 @@
 import pt_mail_internal as internal, threading
 
-# This is the file for all of PyText's mail related code. PyText is IMAP-only and uses the imaplib and email libraries
-#
-#
-#
-
 
 def init(deque):
     'Starts the mail thread. Must be called before any other pt_mail functions.'

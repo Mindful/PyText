@@ -6,9 +6,9 @@ q = pt_util.fq()
 mainQ = None
 running = True
 
-class var: #python's core classes are supposedly threadsafe in cPython, so I should be able to just read/write this from the main thread
+class var: #cPython's data structures are threadsafe, so this data is read from all threads
     settings = {'save_account': '1', 'save_password': '1', 'default_account':'', 'confirmation_windows': '0', 'delete_on_fetch':'0'} 
-    accounts ={} #'accountName': settings //note that settings should include password as its FIRST value
+    accounts ={} 
     currentAccount = ''
     contacts = pt_util.ContactsList()
     lastFetch = 0
@@ -119,8 +119,6 @@ def save_messages(messagelist):
     var.file.commit()
 
 def save_outgoing(msg):
-    #We need UID, Date, number, message, and sent - but we know sent to be 1
-    #Get current date
     cur = var.file.cursor()
     name = tableName()
     cur.execute('SELECT min(uid) FROM '+name+' as minuid')
@@ -150,7 +148,7 @@ def load_account(account):
     cur.execute("SELECT * FROM accounts WHERE account=?", (account,)) #must be a tuple, even if there is only one value
     a = cur.fetchone()
     var.lastFetch = a[3]
-    var.contacts.fromList(json.loads(a[2], object_hook=json_contact)) #note this overrides defaults, makes testing hard
+    var.contacts.fromList(json.loads(a[2], object_hook=json_contact))
     for c in var.contacts.list: #auto load messages for all favorited contacts
         if c.favorited == '1':
             load_messages(c.number)

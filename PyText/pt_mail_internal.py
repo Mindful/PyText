@@ -1,4 +1,4 @@
-import imaplib, smtplib, email, pt_util, collections, time, email.parser as parse, pt_data, re, quopri, sys
+import imaplib, smtplib, email, pt_util, collections, time, email.parser as parse, pt_data, re, quopri, sys, math
 from email.mime.text import MIMEText
 
 q = pt_util.fq()
@@ -118,8 +118,6 @@ def logout():
     var.imap = None
     var.smtp = None
     mainQ.instruction(logout)
-    #if var.status != 'BYE':
-    #   mainQ.mailException(var.status)
 
 
 def mail(msg, provider):
@@ -131,24 +129,43 @@ def mail(msg, provider):
     #and then calculate the number of markers necessary again
     #until it stops changing
 
-    maxchars = 156 #The largest number of characters I can get in an outgoing email-to-text for joshuabtanner@gmail.com
-    #clearly though, the actual max is based on the length of your email
+    maxchars = 179 - len(pt_data.internal.var.currentAccount) #TODO: I believe this is the max, but it may only be for Verizon
+    to = msg.number+var.addresses[provider][0]
+    From = pt_data.internal.var.currentAccount
 
-    #it's 163 for pytext@yahoo.com, which is 7 characters more than joshuabtanner@gmail.com (because pytext@yahoo.com is 7 chars shorter)
+    if len(msg.text) <= maxchars:
+        message = MIMEText(msg.text)
+        message['From'], message['To'], message['subject'] = From, to, ''
+        var.smtp.send_message(message)
+    else:
+        body = msg.text
+        length = len(body)
+        markLength = len(str((math.ceil(length/maxchars)*2 + 2 ))) #+2 for / and : in x/y:
+        splits = -1
+        while True: #Not 100% sure this needs to be a loop, but I think there are fringe cases that might take more than one iteration
+            lastSplits = splits
+            splits = math.ceil(length/(maxchars-markLength))
+            if splits == lastSplits:
+                break
+            else:
+                markLength = len(str(splits))*2 + 2
+
+        counter = 1
+        lastGrab = 0
+        for x in range(1, splits+1):
+            text = str(counter) + '/' + str(splits) + ':'+body[lastGrab:(counter*length//splits)]
+            lastGrab = (counter*length//splits)
+            counter+=1
+            message = MIMEText(text)
+            message['From'], message['To'], message['subject'] = From, to, ''
+            var.smtp.send_message(message)
+
 
     #seems to be 179 - (length of address)
 
 
-    return
-    to = msg.number+var.addresses[provider][0]
-    From = pt_data.internal.var.currentAccount
-    message = MIMEText(msg.text)
-    message['From'], message['To'], message['subject'] = From, to, ''
-    var.smtp.send_message(message)
-
 
 def fetchAll():
-    #print('fetch')
     if not var.imap:
         var.fetchGood = False
         return
@@ -168,7 +185,6 @@ def fetchAll():
         fetch+= d+','
     fetch = fetch.strip(',')
     var.status, texts = var.imap.UID('fetch', fetch, '(INTERNALDATE BODY[1] BODY[HEADER.FIELDS (FROM)])')
-    #print(texts) #IF we decide to 
     strlist = ''
     for item in list:
         strlist = strlist+item+','
